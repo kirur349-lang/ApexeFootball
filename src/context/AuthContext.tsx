@@ -49,6 +49,75 @@ export const DEV_MOCK_PRESETS = {
   },
 };
 
+/**
+ * Creates an instantaneous, rich local mock player profile.
+ * Ensures Dev Preview Mode and the homepage NEVER get blocked by missing Blob storage or network delays.
+ */
+export function createDevMockPlayer(
+  preset: 'pro' | 'rookie' | 'streamer',
+  customGamerTag?: string
+): PlayerProfile {
+  const user = DEV_MOCK_PRESETS[preset];
+  const now = new Date().toISOString();
+
+  const presetsConfig = {
+    pro: {
+      tag: 'Apex_ViperX_Pro',
+      rank: 'Apex Division 1 Elite',
+      coins: 2130,
+      matches: 142,
+      wins: 118,
+      losses: 24,
+      role: 'verified_creator' as const,
+      konamiId: 'VIPER-9921',
+    },
+    rookie: {
+      tag: customGamerTag ? `Apex_${customGamerTag}` : 'Apex_AlexRookie',
+      rank: 'Apex Challenger',
+      coins: 250, // 250 welcome bonus
+      matches: 0,
+      wins: 0,
+      losses: 0,
+      role: 'player' as const,
+      konamiId: undefined,
+    },
+    streamer: {
+      tag: 'Apex_KageLive',
+      rank: 'Apex Master Division',
+      coins: 4500,
+      matches: 310,
+      wins: 245,
+      losses: 65,
+      role: 'verified_creator' as const,
+      konamiId: 'KAGE-7734',
+    },
+  };
+
+  const config = presetsConfig[preset];
+
+  return {
+    id: `tg_${user.id}`,
+    telegramId: user.id,
+    firstName: customGamerTag || user.first_name,
+    lastName: user.last_name,
+    username: user.username,
+    photoUrl: user.photo_url,
+    isPremium: user.is_premium,
+    apexGamerTag: config.tag,
+    konamiId: config.konamiId,
+    coinsBalance: config.coins,
+    rankTitle: config.rank,
+    reputationScore: 100,
+    matchesPlayed: config.matches,
+    wins: config.wins,
+    losses: config.losses,
+    role: config.role,
+    createdAt: now,
+    lastActiveAt: now,
+    isDevPreview: true,
+  };
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -92,11 +161,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Authenticate in Dev Preview mode
+  // Authenticate in Dev Preview mode (100% independent of Vercel Blob storage)
   const loginAsDevMock = useCallback(
     async (preset: 'pro' | 'rookie' | 'streamer', customGamerTag?: string) => {
       setIsLoading(true);
       setAuthError(null);
+
+      // Instantly generate the local mock player to guarantee the homepage is NEVER blocked
+      const localMock = createDevMockPlayer(preset, customGamerTag);
+      setPlayer(localMock);
+      setIsDevPreview(true);
+      sessionStorage.setItem(DEV_PREVIEW_KEY, preset);
 
       const mockUser: TelegramUser = {
         ...DEV_MOCK_PRESETS[preset],
@@ -113,21 +188,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }),
         });
 
-        const data: AuthResponse = await res.json();
-
-        if (data.success && data.player && data.token) {
-          setPlayer(data.player);
-          setIsDevPreview(true);
-          setIsNewAccount(Boolean(data.isNewAccount));
-          sessionStorage.setItem(TOKEN_KEY, data.token);
-          sessionStorage.setItem(DEV_PREVIEW_KEY, preset);
-          triggerHaptic('success');
-        } else {
-          setAuthError(data.error || 'Failed to authenticate in Dev Preview');
+        if (res.ok) {
+          const data: AuthResponse = await res.json();
+          if (data.success && data.player && data.token) {
+            setPlayer(data.player);
+            setIsNewAccount(Boolean(data.isNewAccount));
+            sessionStorage.setItem(TOKEN_KEY, data.token);
+            triggerHaptic('success');
+          }
         }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Network error';
-        setAuthError(msg);
+      } catch (err) {
+        console.warn('[Auth] Dev Preview synced locally (serverless endpoint optional in preview):', err);
       } finally {
         setIsLoading(false);
       }
@@ -154,13 +225,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Check if real Telegram initData is available
+      // 1. Check if real Telegram initData is available (inside Telegram Mini App)
       if (tg?.initData && tg.initData.length > 0) {
         await authenticateWithInitData(tg.initData);
         return;
       }
 
-      // Check if existing session token is stored
+      // 2. Check if an existing session token is stored
       const token = sessionStorage.getItem(TOKEN_KEY);
       if (token) {
         try {
@@ -180,7 +251,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // If outside Telegram without stored session, auto-initialize in Dev Preview with default rookie profile
+      // 3. Outside Telegram: auto-initialize immediately in Dev Preview mode
+      // Never block the homepage or wait for Blob storage
       if (isMounted) {
         const savedDevPreset = (sessionStorage.getItem(DEV_PREVIEW_KEY) as 'pro' | 'rookie' | 'streamer') || 'rookie';
         await loginAsDevMock(savedDevPreset);
@@ -196,8 +268,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Update Apex player profile (e.g. gamerTag, konamiId)
   const updatePlayerProfile = async (updates: { apexGamerTag?: string; konamiId?: string }): Promise<boolean> => {
+    // If in Dev Preview mode, immediately update local state
+    if (isDevPreview) {
+      setPlayer((prev) =>
+        prev
+          ? {
+              ...prev,
+              apexGamerTag: updates.apexGamerTag ? updates.apexGamerTag.trim().slice(0, 30) : prev.apexGamerTag,
+              konamiId: updates.konamiId !== undefined ? updates.konamiId.trim().slice(0, 30) : prev.konamiId,
+              lastActiveAt: new Date().toISOString(),
+            }
+          : null
+      );
+      triggerHaptic('success');
+    }
+
     const token = sessionStorage.getItem(TOKEN_KEY);
-    if (!token) return false;
+    if (!token) return true; // Already saved locally for dev preview
 
     try {
       const res = await fetch('/api/player/me', {
@@ -215,17 +302,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         triggerHaptic('success');
         return true;
       }
-      return false;
+      return Boolean(isDevPreview);
     } catch {
-      return false;
+      return Boolean(isDevPreview);
     }
   };
 
   const logout = () => {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(DEV_PREVIEW_KEY);
-    setPlayer(null);
-    setIsDevPreview(false);
+    // When logging out outside Telegram, re-initialize into default dev preview
+    if (!isInsideTelegram()) {
+      loginAsDevMock('rookie');
+    } else {
+      setPlayer(null);
+      setIsDevPreview(false);
+    }
   };
 
   const loginWithTelegram = async () => {

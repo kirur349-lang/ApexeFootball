@@ -13,7 +13,7 @@ const isProd = process.env.NODE_ENV === 'production';
 app.use(express.json());
 
 // API Routes
-app.post(['/api/auth', '/.netlify/functions/auth'], async (req: Request, res: Response) => {
+app.post('/api/auth', async (req: Request, res: Response) => {
   try {
     const { initData, devMockUser, isDevMode } = req.body || {};
     const result = await authenticateTelegramUser({
@@ -33,10 +33,10 @@ app.post(['/api/auth', '/.netlify/functions/auth'], async (req: Request, res: Re
   }
 });
 
-app.get(['/api/player/me', '/.netlify/functions/player'], async (req: Request, res: Response) => {
+app.get('/api/player/me', async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader?.replace('Bearer ', '');
+    const token = authHeader?.replace(/^Bearer\s+/i, '');
 
     if (!token) {
       return res.status(401).json({ success: false, error: 'Authorization token required' });
@@ -54,10 +54,10 @@ app.get(['/api/player/me', '/.netlify/functions/player'], async (req: Request, r
   }
 });
 
-app.patch(['/api/player/me', '/.netlify/functions/player'], async (req: Request, res: Response) => {
+app.patch('/api/player/me', async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader?.replace('Bearer ', '');
+    const token = authHeader?.replace(/^Bearer\s+/i, '');
 
     if (!token) {
       return res.status(401).json({ success: false, error: 'Authorization token required' });
@@ -89,7 +89,10 @@ app.patch(['/api/player/me', '/.netlify/functions/player'], async (req: Request,
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
+    devPreviewReady: true,
     telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+    vercelBlobConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+    blobStatus: process.env.BLOB_READ_WRITE_TOKEN ? 'configured' : 'pending_configuration',
     timestamp: new Date().toISOString(),
   });
 });

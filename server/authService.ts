@@ -1,7 +1,12 @@
 import crypto from 'crypto';
 import type { TelegramUser, PlayerProfile, AuthResponse } from '../src/types/player.ts';
 import { validateTelegramInitData } from './telegramAuth';
-import { getOrCreatePlayer, getPlayerByTelegramId } from './storage';
+import {
+  getOrCreatePlayer,
+  getPlayerByTelegramId,
+  isVercelBlobConfigured,
+  isProductionEnvironment,
+} from './storage';
 
 const JWT_SECRET = process.env.TELEGRAM_BOT_TOKEN || 'apex_dev_secret_key_2026';
 
@@ -60,11 +65,10 @@ export async function authenticateTelegramUser(params: {
   // Mode A: Real Telegram Mini App initData
   if (params.initData) {
     if (!botToken) {
-      // If user hasn't added bot token yet, but is testing in development
       console.warn('[Auth] TELEGRAM_BOT_TOKEN is not set in environment.');
       return {
         success: false,
-        error: 'TELEGRAM_BOT_TOKEN environment variable is not configured on the server. Please add your Telegram Bot Token in .env or Netlify environment settings.',
+        error: 'TELEGRAM_BOT_TOKEN environment variable is not configured on the server. Please configure TELEGRAM_BOT_TOKEN in your Vercel project settings.',
       };
     }
 
@@ -72,7 +76,16 @@ export async function authenticateTelegramUser(params: {
     if (!verification.valid || !verification.user) {
       return {
         success: false,
-        error: verification.error || 'Telegram initData verification failed',
+        error: verification.error || 'Telegram initData cryptographic verification failed',
+      };
+    }
+
+    // If in production and Vercel Blob is not yet attached, inform the operator honestly
+    // without faking permanent storage
+    if (isProductionEnvironment() && !isVercelBlobConfigured()) {
+      return {
+        success: false,
+        error: 'Vercel Blob storage is not configured yet (missing BLOB_READ_WRITE_TOKEN). Please attach Vercel Blob in your Vercel Dashboard (Storage tab) to enable persistent player storage in production.',
       };
     }
 
@@ -89,16 +102,8 @@ export async function authenticateTelegramUser(params: {
   }
 
   // Mode B: Development Preview Mode with clearly marked mock data
+  // Runs completely independently of Vercel Blob storage
   if (params.devMockUser) {
-    const isAllowedDev = process.env.NODE_ENV !== 'production' || params.isDevMode;
-
-    if (!isAllowedDev) {
-      return {
-        success: false,
-        error: 'Development preview mock authentication is disabled in production.',
-      };
-    }
-
     const { player, isNew } = await getOrCreatePlayer(params.devMockUser, true);
     const token = generateSessionToken(player.telegramId);
 

@@ -24,6 +24,7 @@ import {
   COIN_PACKAGES,
 } from './data/mockData';
 import { TabType, NewsItem, CoinPackage, AppNotification } from './types';
+import { isInsideTelegram } from './utils/telegram';
 import { AlertCircle, RefreshCw, Send } from 'lucide-react';
 
 function ApexAppInner() {
@@ -73,6 +74,12 @@ function ApexAppInner() {
 
   // If catastrophic auth failure and no player session available
   if (authError && !player) {
+    if (!isInsideTelegram()) {
+      loginAsDevMock('rookie');
+      clearError();
+      return <AuthLoadingScreen />;
+    }
+
     return (
       <div className="min-h-screen bg-[#FAFCFF] flex items-center justify-center p-4">
         <div className="glass-card max-w-sm w-full rounded-3xl p-6 text-center border border-white/90 shadow-2xl">

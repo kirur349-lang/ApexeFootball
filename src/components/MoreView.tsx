@@ -252,7 +252,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
             {saveSuccess && (
               <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
                 <Check className="w-3.5 h-3.5" />
-                <span>Profile updated in Netlify storage!</span>
+                <span>Profile updated in Vercel storage!</span>
               </p>
             )}
           </div>
@@ -269,7 +269,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
             <div>
               <h3 className="text-sm font-bold text-[#101C3A]">Telegram Mini App Foundation</h3>
               <p className="text-xs text-[#71819A]">
-                {tg?.platform ? `Platform: ${tg.platform} · WebApp v${tg.version || '8.0'}` : 'Netlify Functions + Blobs'}
+                {tg?.platform ? `Platform: ${tg.platform} · WebApp v${tg.version || '8.0'}` : 'Vercel Serverless + Vercel Blob'}
               </p>
             </div>
           </div>

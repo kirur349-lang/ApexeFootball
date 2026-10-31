@@ -28,7 +28,7 @@ export const TelegramSetupModal: React.FC<TelegramSetupModalProps> = ({ isOpen, 
             </div>
             <div>
               <h3 className="font-bold text-base text-[#101C3A]">Telegram Mini App Setup</h3>
-              <p className="text-[11px] text-[#71819A]">Phase 1: Bot Connection & Netlify Guide</p>
+              <p className="text-[11px] text-[#71819A]">Vercel Deployment & Bot Connection Guide</p>
             </div>
           </div>
           <button
@@ -63,14 +63,14 @@ export const TelegramSetupModal: React.FC<TelegramSetupModalProps> = ({ isOpen, 
               <span>Register the Mini App with @BotFather</span>
             </div>
             <p className="text-[#71819A] leading-relaxed pl-7">
-              In @BotFather, send <code>/newapp</code>, pick your bot, set title and description, and when prompted for the Web App URL, enter your deployed Netlify URL:
+              In @BotFather, send <code>/newapp</code>, pick your bot, set title and description, and when prompted for the Web App URL, enter your deployed Vercel URL:
             </p>
             <div className="mt-2 pl-7 flex items-center gap-2">
               <code className="px-2.5 py-1.5 rounded-lg bg-[#F4F8FD] font-mono text-[11px] text-[#087BFF] border border-[#E5EDFA] flex-1 truncate">
-                https://your-site.netlify.app
+                https://apexefootball.vercel.app
               </code>
               <button
-                onClick={() => handleCopy('https://your-site.netlify.app', 'url')}
+                onClick={() => handleCopy('https://apexefootball.vercel.app', 'url')}
                 className="px-2.5 py-1.5 rounded-lg bg-white border border-[#E5EDFA] hover:bg-slate-50 flex items-center gap-1 shrink-0"
               >
                 {copiedKey === 'url' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
@@ -85,10 +85,10 @@ export const TelegramSetupModal: React.FC<TelegramSetupModalProps> = ({ isOpen, 
               <span className="w-5 h-5 rounded-full bg-[#087BFF] text-white flex items-center justify-center text-[10px]">
                 3
               </span>
-              <span>Set Required Environment Variables in Netlify</span>
+              <span>Set Required Environment Variables in Vercel</span>
             </div>
             <p className="text-[#71819A] leading-relaxed pl-7 mb-2">
-              In Netlify Site Settings &rarr; <strong>Environment variables</strong>, add:
+              In Vercel Project Settings &rarr; <strong>Environment Variables</strong>:
             </p>
             <div className="pl-7 space-y-1.5 font-mono text-[11px]">
               <div className="p-2 rounded-lg bg-[#0c1836] text-white flex items-center justify-between">
@@ -96,7 +96,7 @@ export const TelegramSetupModal: React.FC<TelegramSetupModalProps> = ({ isOpen, 
                 <span className="text-[10px] text-amber-300 font-sans font-bold">REQUIRED</span>
               </div>
               <p className="text-[10px] text-[#71819A] font-sans mt-1">
-                Netlify Blobs is automatically pre-configured by Netlify for functions on your site.
+                Under the <strong>Storage</strong> tab in Vercel, attach a <strong>Vercel Blob</strong> store. Vercel automatically injects <code>BLOB_READ_WRITE_TOKEN</code>.
               </p>
             </div>
           </div>
