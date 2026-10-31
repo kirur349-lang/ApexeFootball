@@ -138,6 +138,32 @@ When opened in a standard desktop browser or preview environment without Telegra
 - **Unblocked Experience:** The homepage and all views remain 100% accessible and responsive even before configuring Vercel Blob.
 
 ### Real Player Storage (Production Ready)
-- When ready to accept real Telegram players, simply create and attach a **Vercel Blob** database under the **Storage** tab in your Vercel Dashboard.
-- Once `BLOB_READ_WRITE_TOKEN` is attached, all real Telegram players authenticated via Telegram's signed `initData` are stored in Vercel Blob (`players/tg_<id>.json`).
-- Fake permanent storage is strictly prohibited in production; accounts are persisted reliably in Vercel Blob once enabled.
+- Real Telegram players authenticated via Telegram's signed `initData` enter the application immediately upon cryptographic signature verification.
+- When ready to enable permanent multi-device persistence, create and attach a **Vercel Blob** database under the **Storage** tab in your Vercel Dashboard.
+- When `BLOB_READ_WRITE_TOKEN` is present, player profiles are saved directly to Vercel Blob (`players/tg_<id>.json`).
+- If `BLOB_READ_WRITE_TOKEN` is not yet attached, authenticated real players are held in session memory without blocking the homepage.
+
+---
+
+## 6. Telegram Authentication Troubleshooting
+
+If your Mini App displays "Authentication Required" when tapping "Open" in Telegram:
+
+1. **Verify TELEGRAM_BOT_TOKEN in Vercel:**
+   - In your Vercel Dashboard &rarr; **Project Settings &rarr; Environment Variables**.
+   - Ensure `TELEGRAM_BOT_TOKEN` is added to **Production**, **Preview**, and **Development**.
+   - Make sure there are no leading/trailing spaces or quotes around the token.
+   - If you added or changed the token, click **Redeploy** on your latest deployment.
+
+2. **Verify Bot Ownership:**
+   - The token in Vercel must belong to the exact bot whose "Open" button you clicked.
+   - If you have multiple bots (e.g., test bot vs production bot), ensure the token matches.
+
+3. **Check the Built-in Diagnostic Screen:**
+   - The app includes an Apple-inspired diagnostic screen that tests:
+     - Telegram SDK load status & detected platform
+     - Signed `initData` payload presence & size
+     - Backend `/api/auth` connectivity
+     - Server-side `TELEGRAM_BOT_TOKEN` configuration status
+     - HMAC-SHA256 signature verification result
+   - Click **"Test Server"** on the diagnostic card to verify your Vercel backend in real time.

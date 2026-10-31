@@ -112,6 +112,11 @@ export const MoreView: React.FC<MoreViewProps> = ({
                     DEV MOCK
                   </span>
                 )}
+                {player.isBlobPending && (
+                  <span className="px-1.5 py-0.2 rounded-md bg-blue-500/10 text-[#087BFF] font-bold text-[9px] uppercase tracking-wider" title="Real Telegram account active in session memory. Attach Vercel Blob in Vercel Dashboard for permanent player saves.">
+                    SESSION (BLOB PENDING)
+                  </span>
+                )}
               </div>
 
               {player.username && (

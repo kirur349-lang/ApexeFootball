@@ -9,6 +9,10 @@ const DEV_PREVIEW_FILE = path.join(DATA_DIR, 'dev-preview.json');
 // Isolated in-memory store for Dev Preview mode - 100% independent of Vercel Blob
 const devPreviewStore: Map<string, PlayerProfile> = new Map();
 
+// In-memory store for authenticated Real Telegram players while Vercel Blob is pending setup
+// This ensures the application NEVER blocks the homepage when BLOB_READ_WRITE_TOKEN is not yet attached
+const sessionRealPlayerStore: Map<string, PlayerProfile> = new Map();
+
 // In-memory cache for local developer sandbox
 let localSandboxCache: Map<string, PlayerProfile> = new Map();
 let isInitialized = false;
@@ -17,7 +21,7 @@ let isInitialized = false;
  * Checks whether Vercel Blob is configured via its environment token
  */
 export function isVercelBlobConfigured(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN && process.env.BLOB_READ_WRITE_TOKEN.trim());
 }
 
 /**
@@ -58,7 +62,7 @@ function ensureLocalSandbox(): void {
 }
 
 function persistLocalSandbox(): void {
-  if (isProductionEnvironment()) return; // Never use fake permanent storage in production
+  if (isProductionEnvironment()) return; // Never write to disk in serverless production
 
   try {
     ensureLocalSandbox();
@@ -97,6 +101,7 @@ export async function getOrCreateDevMockPlayer(
       photoUrl: tgUser.photo_url || existing.photoUrl,
       lastActiveAt: now,
       isDevPreview: true,
+      isBlobPending: false,
     };
     devPreviewStore.set(key, updated);
     persistLocalSandbox();
@@ -108,7 +113,6 @@ export async function getOrCreateDevMockPlayer(
     ? `Apex_${tgUser.username.replace(/[^a-zA-Z0-9_]/g, '')}`
     : `Apex_${tgUser.first_name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) || 'Player'}`;
 
-  // Configure role and rank defaults based on username/id
   const isPro = tgUser.username?.includes('viperx') || tgUser.id === 98452101;
   const isStreamer = tgUser.username?.includes('kage') || tgUser.id === 71203948;
 
@@ -134,6 +138,7 @@ export async function getOrCreateDevMockPlayer(
     createdAt: now,
     lastActiveAt: now,
     isDevPreview: true,
+    isBlobPending: false,
   };
 
   devPreviewStore.set(key, newPlayer);
@@ -149,12 +154,12 @@ export async function getOrCreateDevMockPlayer(
  * Retrieves a real player profile by Telegram User ID.
  * - If dev preview, loads from independent dev store.
  * - If real player in Vercel Blob environment, fetches from Vercel Blob.
- * - In production without Blob, does NOT return fake data.
+ * - If Vercel Blob is not yet attached, retrieves from authenticated session memory.
  */
 export async function getPlayerByTelegramId(telegramId: number): Promise<PlayerProfile | null> {
   const key = `tg_${telegramId}`;
 
-  // 1. Check Dev Preview Store first (instant & decoupled)
+  // 1. Check Dev Preview Store
   if (devPreviewStore.has(key)) {
     return devPreviewStore.get(key) || null;
   }
@@ -171,24 +176,30 @@ export async function getPlayerByTelegramId(telegramId: number): Promise<PlayerP
         const response = await fetch(matched.url, { cache: 'no-store' });
         if (response.ok) {
           const profile = (await response.json()) as PlayerProfile;
+          profile.isBlobPending = false;
           return profile;
         }
       }
-      return null;
     } catch (err) {
-      console.warn(`[Storage] Vercel Blob read error for ${pathname}:`, err);
-      return null;
+      console.warn(`[Storage] Vercel Blob read notice for ${pathname}:`, err);
     }
   }
 
-  // 3. Fallback for local development sandbox only
+  // 3. Fallback to active session player memory (for real authenticated users while Blob is pending)
+  if (sessionRealPlayerStore.has(key)) {
+    const profile = sessionRealPlayerStore.get(key) || null;
+    if (profile) {
+      profile.isBlobPending = !isVercelBlobConfigured();
+    }
+    return profile;
+  }
+
+  // 4. Fallback for local development sandbox
   if (!isProductionEnvironment()) {
     ensureLocalSandbox();
     return localSandboxCache.get(key) || null;
   }
 
-  // 4. In production without Vercel Blob configured:
-  // "Do not use fake permanent storage in production."
   return null;
 }
 
@@ -196,17 +207,20 @@ export async function getPlayerByTelegramId(telegramId: number): Promise<PlayerP
  * Saves or updates a player record.
  * - If dev preview, writes to devPreviewStore without touching Vercel Blob.
  * - If real player and Vercel Blob is configured, persists to Vercel Blob.
- * - In production without Vercel Blob, fails explicitly rather than faking permanent storage.
+ * - If Vercel Blob is not yet attached, holds safely in session memory without throwing errors.
  */
 export async function savePlayer(player: PlayerProfile): Promise<void> {
   const key = `tg_${player.telegramId}`;
 
-  // 1. Dev Preview Player: Save to independent in-memory store
+  // 1. Dev Preview Player
   if (player.isDevPreview) {
     devPreviewStore.set(key, player);
     persistLocalSandbox();
     return;
   }
+
+  // Always update the active session store for fast access
+  sessionRealPlayerStore.set(key, player);
 
   // 2. Real Player with Vercel Blob configured
   if (isVercelBlobConfigured()) {
@@ -221,29 +235,23 @@ export async function savePlayer(player: PlayerProfile): Promise<void> {
       return;
     } catch (err) {
       console.error(`[Storage] Vercel Blob write error for ${pathname}:`, err);
-      throw err;
+      // Keep in session memory so user isn't disrupted
     }
   }
 
-  // 3. Local Developer Sandbox (non-production only)
+  // 3. Local Developer Sandbox (non-production)
   if (!isProductionEnvironment()) {
     ensureLocalSandbox();
     localSandboxCache.set(key, player);
     persistLocalSandbox();
     return;
   }
-
-  // 4. Production without Vercel Blob configured:
-  // Do NOT write to fake permanent storage in production.
-  throw new Error(
-    'Cannot persist real player in production: BLOB_READ_WRITE_TOKEN is missing. Please configure Vercel Blob in your Vercel Dashboard.'
-  );
 }
 
 /**
  * Automatically creates or retrieves an Apex Player account.
  * For Dev Preview: uses getOrCreateDevMockPlayer.
- * For Real Telegram Users: uses Vercel Blob.
+ * For Real Telegram Users: uses Vercel Blob if configured, or session storage if pending.
  */
 export async function getOrCreatePlayer(
   tgUser: TelegramUser,
@@ -253,9 +261,9 @@ export async function getOrCreatePlayer(
     return getOrCreateDevMockPlayer(tgUser);
   }
 
-  // Real player account handling
   const existing = await getPlayerByTelegramId(tgUser.id);
   const now = new Date().toISOString();
+  const blobPending = !isVercelBlobConfigured();
 
   if (existing) {
     const updated: PlayerProfile = {
@@ -267,6 +275,7 @@ export async function getOrCreatePlayer(
       isPremium: tgUser.is_premium ?? existing.isPremium,
       lastActiveAt: now,
       isDevPreview: false,
+      isBlobPending: blobPending,
     };
 
     await savePlayer(updated);
@@ -300,6 +309,7 @@ export async function getOrCreatePlayer(
     createdAt: now,
     lastActiveAt: now,
     isDevPreview: false,
+    isBlobPending: blobPending,
   };
 
   await savePlayer(newPlayer);

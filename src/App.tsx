@@ -13,6 +13,7 @@ import { LiveArenaView } from './components/LiveArenaView';
 import { CoinsStoreView } from './components/CoinsStoreView';
 import { MoreView } from './components/MoreView';
 import { AuthLoadingScreen } from './components/AuthLoadingScreen';
+import { AuthDiagnosticsScreen } from './components/AuthDiagnosticsScreen';
 import { DevPreviewBanner } from './components/DevPreviewBanner';
 import { TelegramSetupModal } from './components/TelegramSetupModal';
 
@@ -25,10 +26,9 @@ import {
 } from './data/mockData';
 import { TabType, NewsItem, CoinPackage, AppNotification } from './types';
 import { isInsideTelegram } from './utils/telegram';
-import { AlertCircle, RefreshCw, Send } from 'lucide-react';
 
 function ApexAppInner() {
-  const { player, isLoading, authError, loginWithTelegram, loginAsDevMock, clearError } = useAuth();
+  const { player, isLoading, authError, loginAsDevMock, clearError } = useAuth();
 
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [selectedArticle, setSelectedArticle] = useState<NewsItem | null>(null);
@@ -80,38 +80,9 @@ function ApexAppInner() {
       return <AuthLoadingScreen />;
     }
 
-    return (
-      <div className="min-h-screen bg-[#FAFCFF] flex items-center justify-center p-4">
-        <div className="glass-card max-w-sm w-full rounded-3xl p-6 text-center border border-white/90 shadow-2xl">
-          <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-3">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <h2 className="text-base font-bold text-[#101C3A]">Authentication Required</h2>
-          <p className="text-xs text-[#71819A] mt-1 mb-5 leading-relaxed">{authError}</p>
-
-          <div className="space-y-2">
-            <button
-              onClick={() => loginWithTelegram()}
-              className="w-full py-2.5 rounded-xl bg-[#087BFF] text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-md shadow-[#087BFF]/25"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Retry Telegram Auth</span>
-            </button>
-            <button
-              onClick={() => {
-                clearError();
-                loginAsDevMock('rookie');
-              }}
-              className="w-full py-2.5 rounded-xl bg-white/80 hover:bg-white text-[#101C3A] text-xs font-bold border border-[#E5EDFA] flex items-center justify-center gap-1.5 active:scale-95 transition-all"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-[#087BFF]" />
-              <span>Continue in Dev Preview Mode</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <AuthDiagnosticsScreen />;
   }
+
 
   return (
     <div className="min-h-screen bg-[#FAFCFF] text-[#101C3A] flex flex-col font-sans selection:bg-[#087BFF] selection:text-white relative overflow-x-hidden">

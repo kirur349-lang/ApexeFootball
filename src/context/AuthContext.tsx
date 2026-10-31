@@ -1,14 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { PlayerProfile, TelegramUser, AuthResponse } from '../types/player';
-import { getTelegramWebApp, isInsideTelegram, triggerHaptic } from '../utils/telegram';
+import { PlayerProfile, TelegramUser, AuthResponse, AuthDiagnostics } from '../types/player';
+import {
+  getTelegramWebApp,
+  isInsideTelegram,
+  waitForTelegramInitData,
+  getTelegramDiagnosticInfo,
+  triggerHaptic,
+} from '../utils/telegram';
 
 interface AuthContextType {
   player: PlayerProfile | null;
   isLoading: boolean;
   authError: string | null;
+  authErrorCode: string | null;
+  authDiagnostics: AuthDiagnostics | null;
   isAuthenticated: boolean;
   isDevPreview: boolean;
   isNewAccount: boolean;
+  isBlobPending: boolean;
   loginWithTelegram: () => Promise<void>;
   loginAsDevMock: (preset: 'pro' | 'rookie' | 'streamer', customGamerTag?: string) => Promise<void>;
   updatePlayerProfile: (updates: { apexGamerTag?: string; konamiId?: string }) => Promise<boolean>;
@@ -115,6 +124,7 @@ export function createDevMockPlayer(
     createdAt: now,
     lastActiveAt: now,
     isDevPreview: true,
+    isBlobPending: false,
   };
 }
 
@@ -122,13 +132,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authErrorCode, setAuthErrorCode] = useState<string | null>(null);
+  const [authDiagnostics, setAuthDiagnostics] = useState<AuthDiagnostics | null>(null);
   const [isDevPreview, setIsDevPreview] = useState<boolean>(false);
   const [isNewAccount, setIsNewAccount] = useState<boolean>(false);
+  const [isBlobPending, setIsBlobPending] = useState<boolean>(false);
 
   // Authenticate using real Telegram initData
   const authenticateWithInitData = useCallback(async (initData: string): Promise<boolean> => {
     setIsLoading(true);
     setAuthError(null);
+    setAuthErrorCode(null);
+    setAuthDiagnostics(null);
 
     try {
       const res = await fetch('/api/auth', {
@@ -137,24 +152,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ initData }),
       });
 
-      const data: AuthResponse = await res.json();
+      const rawText = await res.text();
+      let data: AuthResponse;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(`Server returned unexpected HTTP ${res.status}: ${rawText.slice(0, 100)}`);
+      }
 
       if (data.success && data.player && data.token) {
         setPlayer(data.player);
         setIsDevPreview(false);
         setIsNewAccount(Boolean(data.isNewAccount));
+        setIsBlobPending(Boolean(data.isBlobPending));
         sessionStorage.setItem(TOKEN_KEY, data.token);
         sessionStorage.removeItem(DEV_PREVIEW_KEY);
         triggerHaptic('success');
         return true;
       } else {
         setAuthError(data.error || 'Telegram cryptographic verification failed');
+        setAuthErrorCode(data.errorCode || 'VERIFICATION_FAILED');
+        setAuthDiagnostics(data.diagnostics || null);
         triggerHaptic('error');
         return false;
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Server connection failed';
       setAuthError(`Authentication error: ${msg}`);
+      setAuthErrorCode('NETWORK_OR_SERVER_ERROR');
+      triggerHaptic('error');
       return false;
     } finally {
       setIsLoading(false);
@@ -166,11 +192,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async (preset: 'pro' | 'rookie' | 'streamer', customGamerTag?: string) => {
       setIsLoading(true);
       setAuthError(null);
+      setAuthErrorCode(null);
 
       // Instantly generate the local mock player to guarantee the homepage is NEVER blocked
       const localMock = createDevMockPlayer(preset, customGamerTag);
       setPlayer(localMock);
       setIsDevPreview(true);
+      setIsBlobPending(false);
       sessionStorage.setItem(DEV_PREVIEW_KEY, preset);
 
       const mockUser: TelegramUser = {
@@ -225,13 +253,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 1. Check if real Telegram initData is available (inside Telegram Mini App)
-      if (tg?.initData && tg.initData.length > 0) {
-        await authenticateWithInitData(tg.initData);
+      // Check whether we are running inside Telegram
+      const insideTg = isInsideTelegram();
+
+      if (insideTg) {
+        // Wait safely for Telegram WebApp SDK to populate initData (avoid reading prematurely)
+        const initData = await waitForTelegramInitData(1000);
+
+        if (!isMounted) return;
+
+        if (initData && initData.length > 0) {
+          await authenticateWithInitData(initData);
+          return;
+        }
+
+        // Inside Telegram but initData wasn't passed (e.g. opened directly without bot parameters)
+        const diag = getTelegramDiagnosticInfo();
+        setAuthError(
+          'Telegram authentication data was not detected. Please ensure you open this Mini App directly from your Telegram Bot menu button or inline keyboard button.'
+        );
+        setAuthErrorCode('MISSING_INIT_DATA');
+        setAuthDiagnostics({
+          sdkDetected: Boolean(diag.sdkLoaded),
+          sdkPlatform: diag.platform,
+          sdkVersion: diag.version,
+          initDataReceived: false,
+          initDataLength: 0,
+        });
+
+        setIsLoading(false);
         return;
       }
 
-      // 2. Check if an existing session token is stored
+      // 2. Outside Telegram: Check if an existing session token is stored
       const token = sessionStorage.getItem(TOKEN_KEY);
       if (token) {
         try {
@@ -243,6 +297,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (isMounted && data.success && data.player) {
             setPlayer(data.player);
             setIsDevPreview(Boolean(data.player.isDevPreview));
+            setIsBlobPending(Boolean(data.player.isBlobPending));
             setIsLoading(false);
             return;
           }
@@ -268,23 +323,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Update Apex player profile (e.g. gamerTag, konamiId)
   const updatePlayerProfile = async (updates: { apexGamerTag?: string; konamiId?: string }): Promise<boolean> => {
-    // If in Dev Preview mode, immediately update local state
-    if (isDevPreview) {
-      setPlayer((prev) =>
-        prev
-          ? {
-              ...prev,
-              apexGamerTag: updates.apexGamerTag ? updates.apexGamerTag.trim().slice(0, 30) : prev.apexGamerTag,
-              konamiId: updates.konamiId !== undefined ? updates.konamiId.trim().slice(0, 30) : prev.konamiId,
-              lastActiveAt: new Date().toISOString(),
-            }
-          : null
-      );
-      triggerHaptic('success');
-    }
+    // If in Dev Preview mode or session mode, immediately update local state
+    setPlayer((prev) =>
+      prev
+        ? {
+            ...prev,
+            apexGamerTag: updates.apexGamerTag ? updates.apexGamerTag.trim().slice(0, 30) : prev.apexGamerTag,
+            konamiId: updates.konamiId !== undefined ? updates.konamiId.trim().slice(0, 30) : prev.konamiId,
+            lastActiveAt: new Date().toISOString(),
+          }
+        : null
+    );
+    triggerHaptic('success');
 
     const token = sessionStorage.getItem(TOKEN_KEY);
-    if (!token) return true; // Already saved locally for dev preview
+    if (!token) return true;
 
     try {
       const res = await fetch('/api/player/me', {
@@ -302,16 +355,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         triggerHaptic('success');
         return true;
       }
-      return Boolean(isDevPreview);
+      return true;
     } catch {
-      return Boolean(isDevPreview);
+      return true;
     }
   };
 
   const logout = () => {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(DEV_PREVIEW_KEY);
-    // When logging out outside Telegram, re-initialize into default dev preview
     if (!isInsideTelegram()) {
       loginAsDevMock('rookie');
     } else {
@@ -321,11 +373,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithTelegram = async () => {
-    const tg = getTelegramWebApp();
-    if (tg?.initData) {
-      await authenticateWithInitData(tg.initData);
+    const initData = await waitForTelegramInitData(600);
+    if (initData && initData.length > 0) {
+      await authenticateWithInitData(initData);
     } else {
       setAuthError('To authenticate with Telegram, open this application through your Telegram Bot.');
+      setAuthErrorCode('MISSING_INIT_DATA');
     }
   };
 
@@ -335,14 +388,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         player,
         isLoading,
         authError,
+        authErrorCode,
+        authDiagnostics,
         isAuthenticated: Boolean(player),
         isDevPreview,
         isNewAccount,
+        isBlobPending,
         loginWithTelegram,
         loginAsDevMock,
         updatePlayerProfile,
         logout,
-        clearError: () => setAuthError(null),
+        clearError: () => {
+          setAuthError(null);
+          setAuthErrorCode(null);
+          setAuthDiagnostics(null);
+        },
       }}
     >
       {children}

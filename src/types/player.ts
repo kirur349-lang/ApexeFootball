@@ -33,6 +33,23 @@ export interface PlayerProfile {
   createdAt: string;
   lastActiveAt: string;
   isDevPreview?: boolean;
+  isBlobPending?: boolean;
+}
+
+export interface AuthDiagnostics {
+  sdkDetected: boolean;
+  sdkPlatform?: string;
+  sdkVersion?: string;
+  initDataReceived: boolean;
+  initDataLength?: number;
+  hasUser?: boolean;
+  hasHash?: boolean;
+  hasAuthDate?: boolean;
+  authDate?: number;
+  botTokenConfigured?: boolean;
+  errorCode?: string;
+  blobConfigured?: boolean;
+  storageMode?: 'vercel_blob' | 'session_memory' | 'local_sandbox';
 }
 
 export interface AuthResponse {
@@ -41,5 +58,9 @@ export interface AuthResponse {
   token?: string;
   isNewAccount?: boolean;
   error?: string;
+  errorCode?: string;
   isDevPreview?: boolean;
+  isBlobPending?: boolean;
+  diagnostics?: AuthDiagnostics;
 }
+

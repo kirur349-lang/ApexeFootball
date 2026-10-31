@@ -15,6 +15,35 @@ interface VercelResponse extends ServerResponse {
   send: (data: any) => void;
 }
 
+async function parseRequestBody(req: VercelRequest): Promise<any> {
+  if (req.body !== undefined && req.body !== null) {
+    if (typeof req.body === 'string') {
+      try {
+        return JSON.parse(req.body);
+      } catch {
+        return req.body;
+      }
+    }
+    return req.body;
+  }
+
+  return new Promise((resolve) => {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+    });
+    req.on('end', () => {
+      if (!raw || !raw.trim()) return resolve({});
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        resolve({});
+      }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS and Content-Type headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -46,16 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // PATCH: Update Apex-specific profile details
   if (req.method === 'PATCH') {
     try {
-      let body = req.body;
-      if (typeof body === 'string') {
-        try {
-          body = JSON.parse(body);
-        } catch {
-          // ignore
-        }
-      }
-
-      const updates = body || {};
+      const updates = (await parseRequestBody(req)) || {};
 
       if (updates.apexGamerTag && typeof updates.apexGamerTag === 'string') {
         player.apexGamerTag = updates.apexGamerTag.trim().slice(0, 30);
