@@ -1,0 +1,199 @@
+import React, { useState } from 'react';
+import { X, CheckCircle2, ShieldCheck, Zap, ArrowRight } from 'lucide-react';
+import { CoinPackage } from '../types';
+
+interface CoinPurchaseModalProps {
+  packageItem: CoinPackage | null;
+  onClose: () => void;
+}
+
+export const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({
+  packageItem,
+  onClose,
+}) => {
+  const [gameId, setGameId] = useState('');
+  const [platform, setPlatform] = useState<'mobile' | 'console'>('mobile');
+  const [step, setStep] = useState<'details' | 'success'>('details');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  if (!packageItem) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gameId.trim()) {
+      setError('Please enter your 9-digit Konami Game ID');
+      return;
+    }
+    if (gameId.replace(/\D/g, '').length < 8) {
+      setError('Game ID should be 8-9 numerical digits');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+      setStep('success');
+    }, 1200);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white/92 backdrop-blur-2xl rounded-3xl shadow-[0_20px_60px_rgba(8,123,255,0.20)] overflow-hidden border border-white/80 animate-in zoom-in-95 duration-200">
+        {/* Modal Header */}
+        <div className="px-5 py-4 border-b border-white/60 flex items-center justify-between glass-header">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[#087BFF]/10 text-[#087BFF] flex items-center justify-center border border-[#087BFF]/20 shadow-xs">
+              <Zap className="w-4 h-4" />
+            </div>
+            <h3 className="font-bold text-sm text-[#101C3A]">
+              {step === 'details' ? 'Top Up eFootball Coins' : 'Order Confirmed'}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="w-8 h-8 rounded-full bg-white/60 hover:bg-white border border-white/80 flex items-center justify-center text-[#71819A] hover:text-[#101C3A] active:scale-90 transition-all shadow-xs"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {step === 'details' ? (
+          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            {/* Package Summary Box */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#0c2356] to-[#087BFF] text-white flex items-center justify-between">
+              <div>
+                <span className="text-[10px] text-white/80 uppercase tracking-wider font-mono">
+                  Selected Package
+                </span>
+                <div className="text-xl font-extrabold flex items-center gap-1.5">
+                  <span>{(packageItem.coins + packageItem.bonus).toLocaleString()} Coins</span>
+                  {packageItem.bonus > 0 && (
+                    <span className="text-[10px] bg-[#FFD700] text-[#101C3A] px-1.5 py-0.5 rounded-md font-black">
+                      +{packageItem.bonus} BONUS
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-lg font-black text-white">{packageItem.price}</span>
+                <span className="block text-[10px] text-white/70">Instant ID Delivery</span>
+              </div>
+            </div>
+
+            {/* Platform Selection */}
+            <div>
+              <label className="block text-xs font-bold text-[#101C3A] mb-1.5">
+                Gaming Device
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPlatform('mobile')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    platform === 'mobile'
+                      ? 'border-[#087BFF] bg-[#EBF4FF] text-[#087BFF]'
+                      : 'border-[#E5EDFA] bg-[#F8FAFD] text-[#71819A]'
+                  }`}
+                >
+                  <span>eFootball Mobile</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlatform('console')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    platform === 'console'
+                      ? 'border-[#087BFF] bg-[#EBF4FF] text-[#087BFF]'
+                      : 'border-[#E5EDFA] bg-[#F8FAFD] text-[#71819A]'
+                  }`}
+                >
+                  <span>Console / PC</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Game ID Input */}
+            <div>
+              <label className="block text-xs font-bold text-[#101C3A] mb-1">
+                eFootball Game / Konami ID
+              </label>
+              <input
+                type="text"
+                value={gameId}
+                onChange={(e) => {
+                  setGameId(e.target.value);
+                  if (error) setError('');
+                }}
+                placeholder="e.g. 842-195-302"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5EDFA] bg-[#F8FAFD] text-xs sm:text-sm text-[#101C3A] placeholder-[#71819A] focus:outline-none focus:border-[#087BFF] focus:bg-white font-mono transition-all"
+              />
+              <p className="text-[11px] text-[#71819A] mt-1">
+                Find this in eFootball → Extras → User Information → User Details.
+              </p>
+              {error && <p className="text-xs text-red-500 font-medium mt-1">{error}</p>}
+            </div>
+
+            {/* Trust badge */}
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#F4F8FD] text-xs text-[#71819A]">
+              <ShieldCheck className="w-4 h-4 text-[#087BFF] shrink-0" />
+              <span>100% Safe. We never ask for your password or credentials.</span>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-[#087BFF] hover:bg-[#076ee5] text-white text-xs sm:text-sm font-bold shadow-md shadow-[#087BFF]/25 active:scale-98 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Connecting to Apex Dispatch...</span>
+                </>
+              ) : (
+                <>
+                  <span>Proceed to Safe Top-Up ({packageItem.price})</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+        ) : (
+          <div className="p-6 text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mx-auto ring-8 ring-emerald-50/60">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h4 className="text-base font-bold text-[#101C3A]">Coins Queued for Delivery!</h4>
+              <p className="text-xs text-[#71819A] mt-1 max-w-xs mx-auto">
+                {(packageItem.coins + packageItem.bonus).toLocaleString()} eFootball coins have been routed to Game ID: <span className="font-mono font-bold text-[#101C3A]">{gameId}</span>.
+              </p>
+            </div>
+
+            <div className="p-3 bg-[#F4F8FD] rounded-xl text-left text-xs space-y-1.5 border border-[#E5EDFA]">
+              <div className="flex justify-between text-[#71819A]">
+                <span>Status:</span>
+                <span className="font-bold text-emerald-600">Dispatched (Est. &lt; 45s)</span>
+              </div>
+              <div className="flex justify-between text-[#71819A]">
+                <span>Transaction Ref:</span>
+                <span className="font-mono text-[#101C3A]">APX-{Math.floor(100000 + Math.random() * 900000)}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 rounded-xl bg-[#087BFF] text-white text-xs font-bold active:scale-95 transition-all shadow-sm"
+            >
+              Done & Return
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

@@ -1,0 +1,38 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Redirect /api requests to Netlify Functions
+[[redirects]]
+  from = "/api/auth"
+  to = "/.netlify/functions/auth"
+  status = 200
+
+[[redirects]]
+  from = "/api/player"
+  to = "/.netlify/functions/player"
+  status = 200
+
+[[redirects]]
+  from = "/api/player/*"
+  to = "/.netlify/functions/player"
+  status = 200
+
+# Single Page App routing fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security & Telegram Mini App embedding headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Allow embedding inside Telegram Mini App webviews
+    Content-Security-Policy = "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org telegram:;"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer-when-downgrade"

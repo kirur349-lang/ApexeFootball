@@ -1,0 +1,6 @@
+{
+  "name": "Apexify eFootball",
+  "description": "Premium eFootball esports platform and Telegram Mini App for tournaments, coins, and competitive gaming.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
