@@ -1,11 +1,11 @@
 import crypto from 'crypto';
 import type { TelegramUser, PlayerProfile, AuthResponse } from '../src/types/player.ts';
-import { validateTelegramInitData, normalizeTelegramInitData } from './telegramAuth';
+import { validateTelegramInitData, normalizeTelegramInitData } from './telegramAuth.ts';
 import {
   getOrCreatePlayer,
   getPlayerByTelegramId,
   isVercelBlobConfigured,
-} from './storage';
+} from './storage.ts';
 
 const getJwtSecret = () => (process.env.TELEGRAM_BOT_TOKEN || '').trim() || 'apex_dev_secret_key_2026';
 

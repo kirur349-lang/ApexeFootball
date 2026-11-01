@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
-import { authenticateTelegramUser, getCurrentPlayer } from './server/authService';
-import { savePlayer } from './server/storage';
+import { authenticateTelegramUser, getCurrentPlayer } from './server/authService.ts';
+import { savePlayer } from './server/storage.ts';
 
 dotenv.config();
 

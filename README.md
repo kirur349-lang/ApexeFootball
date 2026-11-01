@@ -54,8 +54,9 @@ Ensure your repository contains:
 1. In your Vercel Project dashboard, navigate to the **Storage** tab.
 2. Click **Create Database** &rarr; select **Blob**.
 3. Name your store (e.g., `apex-efootball-blobs`).
-4. Click **Create & Attach**.
-5. Vercel automatically injects the `BLOB_READ_WRITE_TOKEN` environment variable into your project environments.
+4. Select **Public** access mode (allows fast, direct retrieval of player JSON records).
+5. Click **Create & Attach**.
+6. Vercel automatically injects the `BLOB_READ_WRITE_TOKEN` environment variable into your project environments.
 
 ### Step 4: Configure Environment Variables
 In your Vercel Project Settings &rarr; **Environment Variables**, add:
