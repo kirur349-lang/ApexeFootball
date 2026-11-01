@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, User } from 'lucide-react';
 import { PlayerProfile } from '../types/player';
 
 interface HeaderProps {
@@ -49,9 +49,9 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
 
-        {/* Right: Authenticated Player Badge + Glass Notification Bell */}
+        {/* Right: Authenticated Player Badge or Guest Pill + Glass Notification Bell */}
         <div className="flex items-center gap-2">
-          {player && (
+          {player ? (
             <button
               onClick={onOpenProfile}
               aria-label="View Player Profile"
@@ -73,6 +73,17 @@ export const Header: React.FC<HeaderProps> = ({
                   player.firstName.slice(0, 2).toUpperCase()
                 )}
               </div>
+            </button>
+          ) : (
+            <button
+              onClick={onOpenProfile}
+              aria-label="Guest Profile"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/60 hover:bg-white/90 backdrop-blur-md border border-white/80 shadow-[0_2px_8px_rgba(8,123,255,0.06)] active:scale-95 transition-all text-xs text-[#71819A] hover:text-[#101C3A]"
+            >
+              <div className="w-4 h-4 rounded-full bg-[#71819A]/15 flex items-center justify-center">
+                <User className="w-2.5 h-2.5 text-[#71819A]" />
+              </div>
+              <span className="text-[11px] font-bold">Guest</span>
             </button>
           )}
 

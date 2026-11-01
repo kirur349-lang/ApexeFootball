@@ -3,21 +3,26 @@ import { Trophy, Calendar, Users, Flame, Clock, CheckCircle2, ChevronRight, Awar
 import { MatchSchedule } from '../types';
 import { MATCH_SCHEDULES } from '../data/mockData';
 
+import { useAuth } from '../context/AuthContext';
+
 interface TournamentsViewProps {
   onBackToHome: () => void;
   onOpenLiveMatch: () => void;
+  onRequireAuth?: (reason: string) => void;
 }
 
 export const TournamentsView: React.FC<TournamentsViewProps> = ({
   onBackToHome,
   onOpenLiveMatch,
+  onRequireAuth,
 }) => {
+  const { player } = useAuth();
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING' | 'FINISHED'>('ALL');
   const [selectedMatch, setSelectedMatch] = useState<MatchSchedule | null>(null);
   const [votes, setVotes] = useState<Record<string, 'A' | 'B'>>({});
   const [registered, setRegistered] = useState(false);
   const [showRegModal, setShowRegModal] = useState(false);
-  const [gamerTag, setGamerTag] = useState('');
+  const [gamerTag, setGamerTag] = useState(player?.apexGamerTag || '');
 
   const filteredMatches = MATCH_SCHEDULES.filter((m) => {
     if (activeFilter === 'ALL') return true;
@@ -28,8 +33,22 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
     setVotes((prev) => ({ ...prev, [matchId]: team }));
   };
 
+  const handleRegisterClick = () => {
+    if (!player) {
+      onRequireAuth?.('Register for Global Master Bracket Tournament');
+      return;
+    }
+    setGamerTag(player.apexGamerTag);
+    setShowRegModal(true);
+  };
+
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!player) {
+      setShowRegModal(false);
+      onRequireAuth?.('Register for Global Master Bracket Tournament');
+      return;
+    }
     if (!gamerTag.trim()) return;
     setRegistered(true);
     setShowRegModal(false);
@@ -78,7 +97,7 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
               </span>
             ) : (
               <button
-                onClick={() => setShowRegModal(true)}
+                onClick={handleRegisterClick}
                 className="px-3.5 py-1.5 bg-[#FFD700] hover:bg-[#ffc800] text-[#101C3A] font-extrabold text-xs rounded-xl shadow-xs active:scale-95 transition-all"
               >
                 Register to Play

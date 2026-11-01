@@ -14,8 +14,10 @@ import { CoinsStoreView } from './components/CoinsStoreView';
 import { MoreView } from './components/MoreView';
 import { AuthLoadingScreen } from './components/AuthLoadingScreen';
 import { AuthDiagnosticsScreen } from './components/AuthDiagnosticsScreen';
+import { TelegramAuthModal } from './components/TelegramAuthModal';
 import { DevPreviewBanner } from './components/DevPreviewBanner';
 import { TelegramSetupModal } from './components/TelegramSetupModal';
+import { X, ShieldAlert, Sparkles } from 'lucide-react';
 
 import {
   PROMO_SLIDES,
@@ -28,7 +30,7 @@ import { TabType, NewsItem, CoinPackage, AppNotification } from './types';
 import { isInsideTelegram } from './utils/telegram';
 
 function ApexAppInner() {
-  const { player, isLoading, authError, loginAsDevMock, clearError } = useAuth();
+  const { player, isLoading, authError, authErrorCode, loginAsDevMock, clearError } = useAuth();
 
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [selectedArticle, setSelectedArticle] = useState<NewsItem | null>(null);
@@ -36,6 +38,9 @@ function ApexAppInner() {
   const [selectedCoinPackage, setSelectedCoinPackage] = useState<CoinPackage | null>(null);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isSetupGuideOpen, setIsSetupGuideOpen] = useState(false);
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
+  const [authModalReason, setAuthModalReason] = useState<string | null>(null);
+  const [dismissedAuthBanner, setDismissedAuthBanner] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
 
   // Combine all news for the AllNews modal
@@ -67,23 +72,6 @@ function ApexAppInner() {
     setSelectedArticle(found);
   };
 
-  // Show frosted Apple loading screen while Telegram cryptographic validation completes
-  if (isLoading) {
-    return <AuthLoadingScreen />;
-  }
-
-  // If catastrophic auth failure and no player session available
-  if (authError && !player) {
-    if (!isInsideTelegram()) {
-      loginAsDevMock('rookie');
-      clearError();
-      return <AuthLoadingScreen />;
-    }
-
-    return <AuthDiagnosticsScreen />;
-  }
-
-
   return (
     <div className="min-h-screen bg-[#FAFCFF] text-[#101C3A] flex flex-col font-sans selection:bg-[#087BFF] selection:text-white relative overflow-x-hidden">
       {/* Ambient Apple Glass Background Lighting */}
@@ -96,13 +84,44 @@ function ApexAppInner() {
       {/* Dev Preview Mode Banner (shown when testing outside Telegram) */}
       <DevPreviewBanner onOpenSetupGuide={() => setIsSetupGuideOpen(true)} />
 
-      {/* 2. TOP HEADER (Fixed across navigation, with Player Status Chip) */}
+      {/* 2. TOP HEADER (Fixed across navigation, with Player Status Chip or Guest Pill) */}
       <Header
         unreadCount={unreadNotificationCount}
         onOpenNotifications={() => setIsNotificationOpen(true)}
         player={player}
         onOpenProfile={() => setActiveTab('more')}
       />
+
+      {/* Non-blocking Telegram Auth Status Banner (shown when Telegram verification failed / bot token pending) */}
+      {authError && !player && !dismissedAuthBanner && (
+        <div className="w-full max-w-2xl mx-auto px-4 pt-2">
+          <div className="w-full bg-white/90 backdrop-blur-md border border-amber-300/60 rounded-2xl p-2.5 shadow-[0_4px_16px_rgba(245,158,11,0.08)] flex items-center justify-between gap-2.5 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-3.5 h-3.5" />
+              </div>
+              <p className="text-[11px] text-[#101C3A] truncate font-medium">
+                <span className="font-bold text-amber-700">Guest Visitor Mode:</span> All public pages, news & schedules are active.
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setIsDiagnosticsOpen(true)}
+                className="text-[11px] font-bold text-[#087BFF] hover:underline px-1.5 py-0.5"
+              >
+                Diagnostics
+              </button>
+              <button
+                onClick={() => setDismissedAuthBanner(true)}
+                aria-label="Dismiss banner"
+                className="w-5 h-5 rounded-full hover:bg-slate-100 flex items-center justify-center text-[#71819A]"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 w-full pb-24">
@@ -134,6 +153,7 @@ function ApexAppInner() {
           <TournamentsView
             onBackToHome={() => setActiveTab('home')}
             onOpenLiveMatch={() => setActiveTab('live')}
+            onRequireAuth={(reason) => setAuthModalReason(reason)}
           />
         )}
 
@@ -153,6 +173,8 @@ function ApexAppInner() {
             onBackToHome={() => setActiveTab('home')}
             onOpenNotifications={() => setIsNotificationOpen(true)}
             onOpenSetupGuide={() => setIsSetupGuideOpen(true)}
+            onRequireAuth={(reason) => setAuthModalReason(reason)}
+            onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
           />
         )}
       </main>
@@ -199,6 +221,7 @@ function ApexAppInner() {
         <CoinPurchaseModal
           packageItem={selectedCoinPackage}
           onClose={() => setSelectedCoinPackage(null)}
+          onRequireAuth={(reason) => setAuthModalReason(reason)}
         />
       )}
 
@@ -211,11 +234,26 @@ function ApexAppInner() {
         onSelectNotification={handleSelectNotification}
       />
 
-      {/* Telegram Mini App & Netlify Setup Guide Modal */}
+      {/* Telegram Mini App & Vercel Setup Guide Modal */}
       <TelegramSetupModal
         isOpen={isSetupGuideOpen}
         onClose={() => setIsSetupGuideOpen(false)}
       />
+
+      {/* Telegram Authentication Prompt Modal (for protected actions) */}
+      <TelegramAuthModal
+        isOpen={Boolean(authModalReason)}
+        reason={authModalReason}
+        onClose={() => setAuthModalReason(null)}
+        onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
+      />
+
+      {/* Telegram Auth & Backend Diagnostics Modal (opened on-demand) */}
+      {isDiagnosticsOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-md flex items-center justify-center p-4">
+          <AuthDiagnosticsScreen onClose={() => setIsDiagnosticsOpen(false)} />
+        </div>
+      )}
     </div>
   );
 }

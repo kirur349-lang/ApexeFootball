@@ -22,12 +22,16 @@ interface MoreViewProps {
   onBackToHome: () => void;
   onOpenNotifications: () => void;
   onOpenSetupGuide?: () => void;
+  onRequireAuth?: (reason: string) => void;
+  onOpenDiagnostics?: () => void;
 }
 
 export const MoreView: React.FC<MoreViewProps> = ({
   onBackToHome,
   onOpenNotifications,
   onOpenSetupGuide,
+  onRequireAuth,
+  onOpenDiagnostics,
 }) => {
   const { player, updatePlayerProfile, isDevPreview } = useAuth();
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
@@ -264,6 +268,50 @@ export const MoreView: React.FC<MoreViewProps> = ({
         </div>
       )}
 
+      {/* Guest Explorer Card (shown when browsing without login) */}
+      {!player && (
+        <div className="glass-card rounded-3xl p-5 mb-4 shadow-[0_12px_36px_rgba(8,123,255,0.08)] border border-white/90 relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent pointer-events-none" />
+
+          <div className="flex items-start gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-slate-100 to-slate-200 border-2 border-white shadow-md flex items-center justify-center text-[#71819A] text-xl shrink-0">
+              <User className="w-8 h-8 text-[#71819A]" />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="font-extrabold text-base text-[#101C3A]">
+                  Guest Visitor
+                </h3>
+                <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-[#71819A] font-bold text-[9px] uppercase tracking-wider">
+                  PUBLIC MODE
+                </span>
+              </div>
+              <p className="text-xs text-[#71819A] mt-1 leading-relaxed">
+                You can freely browse tournaments, match arena, and coin store. Sign in with Telegram to compete in brackets and save your records.
+              </p>
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => onRequireAuth?.('Player Profile & Settings')}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#087BFF] hover:bg-[#076ee5] text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Sign In with Telegram</span>
+                </button>
+                {onOpenDiagnostics && (
+                  <button
+                    onClick={onOpenDiagnostics}
+                    className="px-3 py-1.5 rounded-xl bg-white/80 hover:bg-white text-[#101C3A] font-semibold text-xs border border-[#E5EDFA] active:scale-95 transition-all"
+                  >
+                    Diagnostics
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Telegram Mini App Status Card */}
       <div className="glass-card rounded-3xl p-4 mb-4 border border-white/90">
         <div className="flex items-center justify-between">
@@ -278,15 +326,25 @@ export const MoreView: React.FC<MoreViewProps> = ({
               </p>
             </div>
           </div>
-          {onOpenSetupGuide && (
-            <button
-              onClick={onOpenSetupGuide}
-              className="px-2.5 py-1.5 rounded-xl bg-[#EBF4FF] hover:bg-[#D8EAFF] text-[#087BFF] text-xs font-bold active:scale-95 transition-all flex items-center gap-1"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Guide</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {onOpenDiagnostics && (
+              <button
+                onClick={onOpenDiagnostics}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#101C3A] text-xs font-semibold active:scale-95 transition-all"
+              >
+                Diagnostics
+              </button>
+            )}
+            {onOpenSetupGuide && (
+              <button
+                onClick={onOpenSetupGuide}
+                className="px-2.5 py-1.5 rounded-xl bg-[#EBF4FF] hover:bg-[#D8EAFF] text-[#087BFF] text-xs font-bold active:scale-95 transition-all flex items-center gap-1"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>Guide</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

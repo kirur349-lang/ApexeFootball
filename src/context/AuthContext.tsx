@@ -306,11 +306,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 3. Outside Telegram: auto-initialize immediately in Dev Preview mode
-      // Never block the homepage or wait for Blob storage
-      if (isMounted) {
-        const savedDevPreset = (sessionStorage.getItem(DEV_PREVIEW_KEY) as 'pro' | 'rookie' | 'streamer') || 'rookie';
-        await loginAsDevMock(savedDevPreset);
+      // 3. Outside Telegram: If user had previously selected dev mock, restore it
+      const savedDevPreset = sessionStorage.getItem(DEV_PREVIEW_KEY) as 'pro' | 'rookie' | 'streamer' | null;
+      if (savedDevPreset && DEV_MOCK_PRESETS[savedDevPreset]) {
+        if (isMounted) {
+          await loginAsDevMock(savedDevPreset);
+        }
+      } else {
+        // Standard clean visitor / guest mode: homepage and all public areas are immediately open
+        if (isMounted) {
+          setPlayer(null);
+          setIsDevPreview(false);
+          setIsLoading(false);
+        }
       }
     }
 
@@ -364,12 +372,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(DEV_PREVIEW_KEY);
-    if (!isInsideTelegram()) {
-      loginAsDevMock('rookie');
-    } else {
-      setPlayer(null);
-      setIsDevPreview(false);
-    }
+    setPlayer(null);
+    setIsDevPreview(false);
   };
 
   const loginWithTelegram = async () => {

@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
-import { X, CheckCircle2, ShieldCheck, Zap, ArrowRight } from 'lucide-react';
+import { X, CheckCircle2, ShieldCheck, Zap, ArrowRight, Send, AlertCircle } from 'lucide-react';
 import { CoinPackage } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface CoinPurchaseModalProps {
   packageItem: CoinPackage | null;
   onClose: () => void;
+  onRequireAuth?: (reason: string) => void;
 }
 
 export const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({
   packageItem,
   onClose,
+  onRequireAuth,
 }) => {
-  const [gameId, setGameId] = useState('');
+  const { player } = useAuth();
+  const [gameId, setGameId] = useState(player?.konamiId || '');
   const [platform, setPlatform] = useState<'mobile' | 'console'>('mobile');
   const [step, setStep] = useState<'details' | 'success'>('details');
   const [loading, setLoading] = useState(false);
@@ -21,6 +25,12 @@ export const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!player) {
+      onRequireAuth?.('Purchase eFootball Coins');
+      return;
+    }
+
     if (!gameId.trim()) {
       setError('Please enter your 9-digit Konami Game ID');
       return;
@@ -141,6 +151,26 @@ export const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({
               <ShieldCheck className="w-4 h-4 text-[#087BFF] shrink-0" />
               <span>100% Safe. We never ask for your password or credentials.</span>
             </div>
+
+            {/* Unauthenticated Visitor Prompt */}
+            {!player && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-[11px]">Telegram verification needed</p>
+                  <p className="text-[10px] text-amber-700 mt-0.5">
+                    Orders are linked to your Telegram account to verify delivery.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRequireAuth?.('Purchase Coins')}
+                  className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] rounded-lg shrink-0"
+                >
+                  Sign In
+                </button>
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
