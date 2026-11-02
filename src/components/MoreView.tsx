@@ -8,15 +8,13 @@ import {
   ChevronRight,
   ExternalLink,
   User,
-  Edit2,
-  Check,
   Award,
   Coins,
   Settings,
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getTelegramWebApp, triggerHaptic } from '../utils/telegram';
+import { triggerHaptic } from '../utils/telegram';
 
 interface MoreViewProps {
   onBackToHome: () => void;
@@ -33,37 +31,9 @@ export const MoreView: React.FC<MoreViewProps> = ({
   onRequireAuth,
   onOpenDiagnostics,
 }) => {
-  const { player, updatePlayerProfile, isDevPreview } = useAuth();
+  const { player, isDevPreview } = useAuth();
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-
-  // Edit states
-  const [isEditingGamerTag, setIsEditingGamerTag] = useState(false);
-  const [gamerTagInput, setGamerTagInput] = useState(player?.apexGamerTag || '');
-  const [isEditingKonamiId, setIsEditingKonamiId] = useState(false);
-  const [konamiIdInput, setKonamiIdInput] = useState(player?.konamiId || '');
-  const [saveSuccess, setSaveSuccess] = useState(false);
-
-  const tg = getTelegramWebApp();
-
-  const handleSaveGamerTag = async () => {
-    if (!gamerTagInput.trim()) return;
-    const ok = await updatePlayerProfile({ apexGamerTag: gamerTagInput });
-    if (ok) {
-      setIsEditingGamerTag(false);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-    }
-  };
-
-  const handleSaveKonamiId = async () => {
-    const ok = await updatePlayerProfile({ konamiId: konamiIdInput });
-    if (ok) {
-      setIsEditingKonamiId(false);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-    }
-  };
 
   return (
     <div className="w-full pb-28 pt-2 max-w-2xl mx-auto px-4">
@@ -159,112 +129,6 @@ export const MoreView: React.FC<MoreViewProps> = ({
               </span>
             </div>
           </div>
-
-          {/* Editable Gaming Profile Fields */}
-          <div className="mt-4 pt-3 border-t border-[#E5EDFA] space-y-3">
-            {/* Apex Gamer Tag */}
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="font-bold text-[#101C3A]">Apex Esports Gamer Tag</span>
-                {!isEditingGamerTag ? (
-                  <button
-                    onClick={() => {
-                      setGamerTagInput(player.apexGamerTag);
-                      setIsEditingGamerTag(true);
-                    }}
-                    className="text-[#087BFF] font-semibold hover:underline flex items-center gap-1 text-[11px]"
-                  >
-                    <Edit2 className="w-3 h-3" />
-                    <span>Edit</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSaveGamerTag}
-                    className="text-emerald-600 font-bold hover:underline flex items-center gap-1 text-[11px]"
-                  >
-                    <Check className="w-3 h-3" />
-                    <span>Save</span>
-                  </button>
-                )}
-              </div>
-              {isEditingGamerTag ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={gamerTagInput}
-                    onChange={(e) => setGamerTagInput(e.target.value)}
-                    className="flex-1 px-3 py-1.5 rounded-xl border border-[#087BFF] bg-white text-xs font-bold text-[#101C3A] focus:outline-none"
-                    placeholder="Enter gamer tag..."
-                  />
-                  <button
-                    onClick={handleSaveGamerTag}
-                    className="px-3 py-1.5 rounded-xl bg-[#087BFF] text-white text-xs font-bold"
-                  >
-                    Save
-                  </button>
-                </div>
-              ) : (
-                <div className="p-2 rounded-xl bg-white/60 border border-white/80 text-xs font-bold text-[#101C3A] font-mono">
-                  {player.apexGamerTag}
-                </div>
-              )}
-            </div>
-
-            {/* Konami / Game ID */}
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="font-bold text-[#101C3A]">eFootball Konami ID</span>
-                {!isEditingKonamiId ? (
-                  <button
-                    onClick={() => {
-                      setKonamiIdInput(player.konamiId || '');
-                      setIsEditingKonamiId(true);
-                    }}
-                    className="text-[#087BFF] font-semibold hover:underline flex items-center gap-1 text-[11px]"
-                  >
-                    <Edit2 className="w-3 h-3" />
-                    <span>{player.konamiId ? 'Edit' : 'Link ID'}</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSaveKonamiId}
-                    className="text-emerald-600 font-bold hover:underline flex items-center gap-1 text-[11px]"
-                  >
-                    <Check className="w-3 h-3" />
-                    <span>Save</span>
-                  </button>
-                )}
-              </div>
-              {isEditingKonamiId ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={konamiIdInput}
-                    onChange={(e) => setKonamiIdInput(e.target.value)}
-                    className="flex-1 px-3 py-1.5 rounded-xl border border-[#087BFF] bg-white text-xs font-mono text-[#101C3A] focus:outline-none"
-                    placeholder="e.g. 842-195-302"
-                  />
-                  <button
-                    onClick={handleSaveKonamiId}
-                    className="px-3 py-1.5 rounded-xl bg-[#087BFF] text-white text-xs font-bold"
-                  >
-                    Save
-                  </button>
-                </div>
-              ) : (
-                <div className="p-2 rounded-xl bg-white/60 border border-white/80 text-xs text-[#71819A] font-mono">
-                  {player.konamiId || 'No Konami ID linked yet (click Link ID to connect)'}
-                </div>
-              )}
-            </div>
-
-            {saveSuccess && (
-              <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" />
-                <span>Profile updated in Vercel storage!</span>
-              </p>
-            )}
-          </div>
         </div>
       )}
 
@@ -312,41 +176,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
         </div>
       )}
 
-      {/* Telegram Mini App Status Card */}
-      <div className="glass-card rounded-3xl p-4 mb-4 border border-white/90">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#0088cc]/10 text-[#0088cc] flex items-center justify-center shrink-0">
-              <Send className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#101C3A]">Telegram Mini App Foundation</h3>
-              <p className="text-xs text-[#71819A]">
-                {tg?.platform ? `Platform: ${tg.platform} · WebApp v${tg.version || '8.0'}` : 'Vercel Serverless + Vercel Blob'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {onOpenDiagnostics && (
-              <button
-                onClick={onOpenDiagnostics}
-                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#101C3A] text-xs font-semibold active:scale-95 transition-all"
-              >
-                Diagnostics
-              </button>
-            )}
-            {onOpenSetupGuide && (
-              <button
-                onClick={onOpenSetupGuide}
-                className="px-2.5 py-1.5 rounded-xl bg-[#EBF4FF] hover:bg-[#D8EAFF] text-[#087BFF] text-xs font-bold active:scale-95 transition-all flex items-center gap-1"
-              >
-                <Settings className="w-3.5 h-3.5" />
-                <span>Guide</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+
 
       {/* Community & Esports Links */}
       <div className="glass-card rounded-3xl p-4 mb-4 border border-white/90">

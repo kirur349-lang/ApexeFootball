@@ -1,0 +1,200 @@
+{
+  "entities": {
+    "Tournament": {
+      "title": "Tournament",
+      "description": "eFootball tournament managed by Admin and displayed to players",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "rules": { "type": "string" },
+        "prizePool": { "type": "number" },
+        "format": { "type": "string" },
+        "status": { "type": "string" },
+        "platform": { "type": "string" },
+        "registrationDeadline": { "type": "string" },
+        "registeredPlayersCount": { "type": "number" },
+        "maxPlayers": { "type": "number" },
+        "registrations": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "bracket": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      },
+      "required": ["id", "name", "prizePool", "status"]
+    },
+    "NewsArticle": {
+      "title": "NewsArticle",
+      "description": "Published news and announcements from Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "category": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "content": { "type": "string" },
+        "author": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "publishedAt": { "type": "string" },
+        "views": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "title", "status"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "Tournament fixtures and scores",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tournamentId": { "type": "string" },
+        "tournamentName": { "type": "string" },
+        "roundName": { "type": "string" },
+        "status": { "type": "string" },
+        "scheduledTime": { "type": "string" },
+        "isStreamed": { "type": "boolean" },
+        "streamUrl": { "type": "string" },
+        "player1": { "type": "object" },
+        "player2": { "type": "object" }
+      },
+      "required": ["id", "status"]
+    },
+    "LiveArena": {
+      "title": "LiveArena",
+      "description": "Real-time arena broadcast info",
+      "type": "object",
+      "properties": {
+        "matchId": { "type": "string" },
+        "tournamentName": { "type": "string" },
+        "isLive": { "type": "boolean" },
+        "player1Name": { "type": "string" },
+        "player1Score": { "type": "number" },
+        "player2Name": { "type": "string" },
+        "player2Score": { "type": "number" },
+        "currentMinute": { "type": "number" },
+        "viewerCount": { "type": "number" },
+        "streamUrl": { "type": "string" },
+        "resolution": { "type": "string" },
+        "fps": { "type": "number" },
+        "bitrateKbps": { "type": "number" }
+      },
+      "required": ["tournamentName"]
+    },
+    "CoinOrder": {
+      "title": "CoinOrder",
+      "description": "Customer coin purchase orders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "playerId": { "type": "string" },
+        "playerName": { "type": "string" },
+        "playerUsername": { "type": "string" },
+        "efootballId": { "type": "string" },
+        "packageName": { "type": "string" },
+        "packageCoins": { "type": "number" },
+        "amountUsd": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "orderStatus": { "type": "string" },
+        "orderDate": { "type": "string" },
+        "transactionRef": { "type": "string" }
+      },
+      "required": ["id", "playerId", "packageCoins", "amountUsd", "orderStatus"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "Broadcast notifications and player alerts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "sentBy": { "type": "string" },
+        "sentAt": { "type": "string" },
+        "recipientFilter": { "type": "string" },
+        "readCount": { "type": "number" },
+        "deliveredCount": { "type": "number" },
+        "telegramBroadcast": { "type": "boolean" }
+      },
+      "required": ["id", "title", "message"]
+    },
+    "Player": {
+      "title": "Player",
+      "description": "Player profile synchronized across Customer and Admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "efootballId": { "type": "string" },
+        "coinsBalance": { "type": "number" },
+        "avatar": { "type": "string" },
+        "status": { "type": "string" },
+        "ranking": { "type": "number" },
+        "matchesPlayed": { "type": "number" },
+        "wins": { "type": "number" },
+        "draws": { "type": "number" },
+        "losses": { "type": "number" },
+        "country": { "type": "string" },
+        "preferredClub": { "type": "string" },
+        "telegramId": { "type": "number" }
+      },
+      "required": ["id", "name", "coinsBalance"]
+    },
+    "GlobalSettings": {
+      "title": "GlobalSettings",
+      "description": "Platform settings and configurations",
+      "type": "object",
+      "properties": {
+        "platformName": { "type": "string" },
+        "supportEmail": { "type": "string" },
+        "telegramChannelId": { "type": "string" },
+        "maintenanceMode": { "type": "boolean" },
+        "disputeTimeoutHours": { "type": "string" },
+        "stripeConnected": { "type": "boolean" },
+        "usdtAddress": { "type": "string" }
+      },
+      "required": ["platformName"]
+    }
+  },
+  "firestore": {
+    "/tournaments/{tournamentId}": {
+      "schema": "Tournament",
+      "description": "Tournament records"
+    },
+    "/news/{articleId}": {
+      "schema": "NewsArticle",
+      "description": "Published news articles"
+    },
+    "/matches/{matchId}": {
+      "schema": "Match",
+      "description": "Fixtures and match results"
+    },
+    "/liveArena/{docId}": {
+      "schema": "LiveArena",
+      "description": "Live arena broadcast state"
+    },
+    "/coinOrders/{orderId}": {
+      "schema": "CoinOrder",
+      "description": "Player coin purchase orders"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "AppNotification",
+      "description": "System and tournament alerts"
+    },
+    "/players/{playerId}": {
+      "schema": "Player",
+      "description": "Player accounts"
+    },
+    "/settings/{settingId}": {
+      "schema": "GlobalSettings",
+      "description": "Global application configuration"
+    }
+  }
+}

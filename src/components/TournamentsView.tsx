@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Trophy, Calendar, Users, Flame, Clock, CheckCircle2, ChevronRight, Award } from 'lucide-react';
 import { MatchSchedule } from '../types';
-import { MATCH_SCHEDULES } from '../data/mockData';
-
 import { useAuth } from '../context/AuthContext';
+import { useTournamentsLive, useMatchesLive, FirestoreTournament } from '../services/firestoreData';
 
 interface TournamentsViewProps {
   onBackToHome: () => void;
@@ -16,15 +15,29 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
   onOpenLiveMatch,
   onRequireAuth,
 }) => {
-  const { player } = useAuth();
+  const { player, token } = useAuth();
+  const { tournaments, loading: tournLoading } = useTournamentsLive();
+  const { matches: liveMatches, loading: matchesLoading } = useMatchesLive();
+
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'LIVE' | 'UPCOMING' | 'FINISHED'>('ALL');
   const [selectedMatch, setSelectedMatch] = useState<MatchSchedule | null>(null);
   const [votes, setVotes] = useState<Record<string, 'A' | 'B'>>({});
   const [registered, setRegistered] = useState(false);
   const [showRegModal, setShowRegModal] = useState(false);
   const [gamerTag, setGamerTag] = useState(player?.apexGamerTag || '');
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState('');
 
-  const filteredMatches = MATCH_SCHEDULES.filter((m) => {
+  // Primary tournament from shared Firestore (or fallback)
+  const primaryTournament: FirestoreTournament | null = tournaments.length > 0 ? tournaments[0] : null;
+
+  // Check if current authenticated player is already registered in the tournament
+  const isAlreadyRegistered = Boolean(
+    registered ||
+    (player && primaryTournament?.registrations?.some((r) => r.playerId === player.id))
+  );
+
+  const filteredMatches = liveMatches.filter((m) => {
     if (activeFilter === 'ALL') return true;
     return m.status === activeFilter;
   });
@@ -35,23 +48,52 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
 
   const handleRegisterClick = () => {
     if (!player) {
-      onRequireAuth?.('Register for Global Master Bracket Tournament');
+      onRequireAuth?.('Register for Championship Tournament');
       return;
     }
     setGamerTag(player.apexGamerTag);
+    setRegError('');
     setShowRegModal(true);
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!player) {
       setShowRegModal(false);
-      onRequireAuth?.('Register for Global Master Bracket Tournament');
+      onRequireAuth?.('Register for Championship Tournament');
       return;
     }
     if (!gamerTag.trim()) return;
-    setRegistered(true);
-    setShowRegModal(false);
+
+    setRegLoading(true);
+    setRegError('');
+
+    try {
+      const tournId = primaryTournament?.id || 'tourn-1';
+      const res = await fetch('/api/tournaments/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          tournamentId: tournId,
+          gamerTag: gamerTag.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRegistered(true);
+        setShowRegModal(false);
+      } else {
+        setRegError(data.error || 'Failed to complete tournament registration');
+      }
+    } catch (err: any) {
+      setRegError(`Network error: ${err.message || 'Could not connect'}`);
+    } finally {
+      setRegLoading(false);
+    }
   };
 
   return (
@@ -71,7 +113,11 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
         </div>
         <div className="text-right">
           <span className="text-[10px] text-[#71819A] uppercase tracking-wider block">Prize Pool</span>
-          <span className="text-sm font-black text-[#087BFF]">$5,000 USD</span>
+          <span className="text-sm font-black text-[#087BFF]">
+            {primaryTournament?.prizePool
+              ? `$${primaryTournament.prizePool.toLocaleString()} USD`
+              : '$5,000 USD'}
+          </span>
         </div>
       </div>
 
@@ -80,20 +126,21 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
         <div className="relative z-10 max-w-[70%]">
           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/15 text-[10px] font-extrabold tracking-wider mb-2 border border-white/20">
             <Trophy className="w-3 h-3 text-[#FFD700]" />
-            <span>SEASON 4 FINALS</span>
+            <span>{primaryTournament?.status ? primaryTournament.status.replace(/_/g, ' ') : 'SEASON 4 FINALS'}</span>
           </div>
           <h2 className="text-lg sm:text-xl font-black leading-tight">
-            Global Master Bracket 2026
+            {primaryTournament?.name || 'Global Master Bracket 2026'}
           </h2>
           <p className="text-xs text-white/80 mt-1 line-clamp-2">
-            128 players, double-elimination, official eFootball Mobile rules.
+            {primaryTournament?.description ||
+              '128 players, double-elimination, official eFootball Mobile rules.'}
           </p>
 
           <div className="mt-3 flex items-center gap-2">
-            {registered ? (
+            {isAlreadyRegistered ? (
               <span className="inline-flex items-center gap-1 text-xs bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg shadow-xs">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Registered: Seed #94</span>
+                <span>Registered: Entry Confirmed</span>
               </span>
             ) : (
               <button
@@ -306,19 +353,28 @@ export const TournamentsView: React.FC<TournamentsViewProps> = ({
                   className="w-full px-3 py-2 rounded-xl border border-[#E5EDFA] text-xs bg-[#F8FAFD] focus:bg-white focus:outline-none focus:border-[#087BFF]"
                 />
               </div>
+              {regError && (
+                <p className="text-xs text-red-500 font-medium">{regError}</p>
+              )}
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowRegModal(false)}
+                  disabled={regLoading}
                   className="flex-1 py-2 rounded-xl border border-[#E5EDFA] text-xs font-semibold text-[#71819A] hover:bg-[#F4F7FC]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-[#087BFF] text-white text-xs font-bold shadow-sm"
+                  disabled={regLoading}
+                  className="flex-1 py-2 rounded-xl bg-[#087BFF] text-white text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
                 >
-                  Confirm Entry
+                  {regLoading ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span>Confirm Entry</span>
+                  )}
                 </button>
               </div>
             </form>

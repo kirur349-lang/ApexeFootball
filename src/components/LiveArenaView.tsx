@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Radio, Users, Volume2, VolumeX, MessageSquare, Flame } from 'lucide-react';
+import { useLiveArenaCurrent } from '../services/firestoreData';
 
 interface LiveArenaViewProps {
   onBackToHome: () => void;
@@ -13,6 +14,7 @@ interface CommentaryEvent {
 }
 
 export const LiveArenaView: React.FC<LiveArenaViewProps> = ({ onBackToHome }) => {
+  const arenaData = useLiveArenaCurrent();
   const [minute, setMinute] = useState(74);
   const [scoreA, setScoreA] = useState(2);
   const [scoreB, setScoreB] = useState(1);
@@ -70,15 +72,25 @@ export const LiveArenaView: React.FC<LiveArenaViewProps> = ({ onBackToHome }) =>
           </button>
           <h1 className="text-xl font-extrabold text-[#101C3A] tracking-tight flex items-center gap-2">
             <span>Apex Live Arena</span>
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-black uppercase tracking-wider animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
-              LIVE
-            </span>
+            {arenaData?.isLive !== false ? (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-black uppercase tracking-wider animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                LIVE
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500 text-white text-[10px] font-black uppercase tracking-wider">
+                OFFLINE
+              </span>
+            )}
           </h1>
         </div>
         <div className="flex items-center gap-1 text-xs text-[#71819A]">
           <Users className="w-3.5 h-3.5" />
-          <span className="font-mono font-bold text-[#101C3A]">14,820 watching</span>
+          <span className="font-mono font-bold text-[#101C3A]">
+            {arenaData?.viewerCount
+              ? `${arenaData.viewerCount.toLocaleString()} watching`
+              : '14,820 watching'}
+          </span>
         </div>
       </div>
 
@@ -100,7 +112,7 @@ export const LiveArenaView: React.FC<LiveArenaViewProps> = ({ onBackToHome }) =>
         <div className="relative z-10 flex items-center justify-between">
           <div className="bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-lg text-[11px] font-bold border border-white/10 flex items-center gap-1.5">
             <Radio className="w-3 h-3 text-red-500 animate-pulse" />
-            <span>Grand Final · Game 3 of 5</span>
+            <span>{arenaData?.tournamentName || 'Grand Final · Game 3 of 5'}</span>
           </div>
           <button
             onClick={() => setIsMuted(!isMuted)}
@@ -116,16 +128,24 @@ export const LiveArenaView: React.FC<LiveArenaViewProps> = ({ onBackToHome }) =>
           <div className="bg-[#071329]/90 backdrop-blur-md border border-white/20 rounded-2xl px-6 py-3 shadow-2xl flex items-center gap-6">
             <div className="text-center">
               <span className="block text-xs font-black tracking-wider text-[#00E5FF]">APX</span>
-              <span className="text-[10px] text-white/70">ViperX</span>
+              <span className="text-[10px] text-white/70 max-w-[80px] truncate block">
+                {arenaData?.player1Name || 'ViperX'}
+              </span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-3xl font-black text-white font-mono">{scoreA}</span>
+              <span className="text-3xl font-black text-white font-mono">
+                {arenaData?.player1Score ?? scoreA}
+              </span>
               <span className="text-xs font-bold text-white/40">:</span>
-              <span className="text-3xl font-black text-white font-mono">{scoreB}</span>
+              <span className="text-3xl font-black text-white font-mono">
+                {arenaData?.player2Score ?? scoreB}
+              </span>
             </div>
             <div className="text-center">
               <span className="block text-xs font-black tracking-wider text-[#FFD700]">NVA</span>
-              <span className="text-[10px] text-white/70">Kage_99</span>
+              <span className="text-[10px] text-white/70 max-w-[80px] truncate block">
+                {arenaData?.player2Name || 'Kage_99'}
+              </span>
             </div>
           </div>
         </div>
@@ -134,11 +154,13 @@ export const LiveArenaView: React.FC<LiveArenaViewProps> = ({ onBackToHome }) =>
         <div className="relative z-10 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <span className="font-mono font-bold text-emerald-400 bg-black/50 px-2 py-0.5 rounded">
-              {minute}&apos;
+              {arenaData?.currentMinute ? `${arenaData.currentMinute}'` : `${minute}'`}
             </span>
             <span className="text-[11px] text-white/80">Possession: APX 54% - 46% NVA</span>
           </div>
-          <span className="text-[10px] text-white/60 font-mono">1080p 60fps</span>
+          <span className="text-[10px] text-white/60 font-mono">
+            {arenaData?.resolution || '1080p'} {arenaData?.fps || 60}fps
+          </span>
         </div>
       </div>
 

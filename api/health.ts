@@ -38,10 +38,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return sendJsonResponse(res, 200, {
       status: 'ok',
       platform: 'Vercel Serverless',
-      devPreviewReady: true,
+      firebaseConfigured: true,
+      firebaseProjectId: 'gen-lang-client-0726551553',
+      firestoreDatabaseId: 'ai-studio-apexefootballadm-4a575541-f393-4a25-884c-ac75fb539486',
       telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
-      vercelBlobConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
-      blobStatus: process.env.BLOB_READ_WRITE_TOKEN ? 'configured' : 'pending_configuration',
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {

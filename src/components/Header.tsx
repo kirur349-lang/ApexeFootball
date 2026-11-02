@@ -6,6 +6,7 @@ interface HeaderProps {
   unreadCount: number;
   onOpenNotifications: () => void;
   player?: PlayerProfile | null;
+  isLoading?: boolean;
   onOpenProfile?: () => void;
 }
 
@@ -13,8 +14,16 @@ export const Header: React.FC<HeaderProps> = ({
   unreadCount,
   onOpenNotifications,
   player,
+  isLoading,
   onOpenProfile,
 }) => {
+  const [imgError, setImgError] = React.useState(false);
+
+  // Reset img error if player photo changes
+  React.useEffect(() => {
+    setImgError(false);
+  }, [player?.photoUrl]);
+
   return (
     <header className="sticky top-0 z-30 w-full glass-header transition-colors duration-300">
       {/* Specular hairline light reflection along top */}
@@ -51,11 +60,19 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Authenticated Player Badge or Guest Pill + Glass Notification Bell */}
         <div className="flex items-center gap-2">
-          {player ? (
+          {isLoading && !player ? (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/50 backdrop-blur-md border border-white/70 shadow-xs text-xs animate-pulse select-none"
+              title="Connecting Telegram player profile..."
+            >
+              <div className="w-4 h-4 rounded-full bg-[#087BFF]/20" />
+              <span className="text-[11px] font-bold text-[#71819A]">Syncing...</span>
+            </div>
+          ) : player ? (
             <button
               onClick={onOpenProfile}
               aria-label="View Player Profile"
-              className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/60 hover:bg-white/90 backdrop-blur-md border border-white/80 shadow-[0_2px_8px_rgba(8,123,255,0.06)] active:scale-95 transition-all text-xs"
+              className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/60 hover:bg-white/90 backdrop-blur-md border border-white/80 shadow-[0_2px_8px_rgba(8,123,255,0.06)] active:scale-95 transition-all text-xs group"
             >
               {/* Coin Balance Chip */}
               <div className="flex items-center gap-1 font-mono font-bold text-[#101C3A]">
@@ -66,12 +83,19 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               {/* Player Avatar */}
-              <div className="w-5 h-5 rounded-full bg-[#087BFF] text-white font-extrabold text-[9px] flex items-center justify-center ring-1 ring-white shadow-xs overflow-hidden">
-                {player.photoUrl ? (
-                  <img src={player.photoUrl} alt="" className="w-full h-full object-cover" />
+              <div className="relative w-5 h-5 rounded-full bg-[#087BFF] text-white font-extrabold text-[9px] flex items-center justify-center ring-1 ring-white shadow-xs overflow-hidden shrink-0">
+                {player.photoUrl && !imgError ? (
+                  <img
+                    src={player.photoUrl}
+                    alt=""
+                    onError={() => setImgError(true)}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  player.firstName.slice(0, 2).toUpperCase()
+                  <span>{player.firstName.slice(0, 2).toUpperCase()}</span>
                 )}
+                {/* Verified Green Dot */}
+                <span className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 ring-1 ring-white" />
               </div>
             </button>
           ) : (

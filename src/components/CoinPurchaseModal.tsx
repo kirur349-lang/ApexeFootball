@@ -14,16 +14,17 @@ export const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({
   onClose,
   onRequireAuth,
 }) => {
-  const { player } = useAuth();
+  const { player, token } = useAuth();
   const [gameId, setGameId] = useState(player?.konamiId || '');
   const [platform, setPlatform] = useState<'mobile' | 'console'>('mobile');
   const [step, setStep] = useState<'details' | 'success'>('details');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [createdOrder, setCreatedOrder] = useState<any>(null);
 
   if (!packageItem) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!player) {
@@ -43,10 +44,36 @@ export const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      const numericPrice = parseFloat(packageItem.price.replace(/[^0-9.]/g, '')) || 0.99;
+      const res = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          packageId: packageItem.id,
+          packageName: `${(packageItem.coins + packageItem.bonus).toLocaleString()} Coins Package`,
+          packageCoins: packageItem.coins + packageItem.bonus,
+          amountUsd: numericPrice,
+          paymentMethod: platform === 'mobile' ? 'eFootball Mobile In-App' : 'Console/PC Gateway',
+          efootballId: gameId.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.order) {
+        setCreatedOrder(data.order);
+        setStep('success');
+      } else {
+        setError(data.error || 'Failed to submit coin order to Apex Firestore');
+      }
+    } catch (err: any) {
+      setError(`Network error: ${err.message || 'Could not reach order server'}`);
+    } finally {
       setLoading(false);
-      setStep('success');
-    }, 1200);
+    }
   };
 
   return (
@@ -198,20 +225,40 @@ export const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({
             </div>
 
             <div>
-              <h4 className="text-base font-bold text-[#101C3A]">Coins Queued for Delivery!</h4>
+              <h4 className="text-base font-bold text-[#101C3A]">Order Submitted to Apex Admin!</h4>
               <p className="text-xs text-[#71819A] mt-1 max-w-xs mx-auto">
-                {(packageItem.coins + packageItem.bonus).toLocaleString()} eFootball coins have been routed to Game ID: <span className="font-mono font-bold text-[#101C3A]">{gameId}</span>.
+                {(packageItem.coins + packageItem.bonus).toLocaleString()} eFootball coins requested for Game ID: <span className="font-mono font-bold text-[#101C3A]">{gameId}</span>.
               </p>
             </div>
 
-            <div className="p-3 bg-[#F4F8FD] rounded-xl text-left text-xs space-y-1.5 border border-[#E5EDFA]">
-              <div className="flex justify-between text-[#71819A]">
-                <span>Status:</span>
-                <span className="font-bold text-emerald-600">Dispatched (Est. &lt; 45s)</span>
+            <div className="p-3 bg-[#F4F8FD] rounded-xl text-left text-xs space-y-2 border border-[#E5EDFA]">
+              <div className="flex justify-between items-center text-[#71819A]">
+                <span>Order ID:</span>
+                <span className="font-mono font-bold text-[#087BFF] bg-[#EBF4FF] px-2 py-0.5 rounded text-[11px]">
+                  {createdOrder?.id || 'ORD-SYNCED'}
+                </span>
               </div>
-              <div className="flex justify-between text-[#71819A]">
+              <div className="flex justify-between items-center text-[#71819A]">
+                <span>Order Status:</span>
+                <span className="font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-[10px] border border-amber-200">
+                  {createdOrder?.orderStatus || 'Pending Admin Approval'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[#71819A]">
+                <span>Payment:</span>
+                <span className="font-bold text-blue-600 text-[11px]">
+                  {createdOrder?.paymentStatus || 'Verification Pending'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[#71819A]">
                 <span>Transaction Ref:</span>
-                <span className="font-mono text-[#101C3A]">APX-{Math.floor(100000 + Math.random() * 900000)}</span>
+                <span className="font-mono text-[#101C3A] text-[11px]">
+                  {createdOrder?.transactionRef || 'Pending'}
+                </span>
+              </div>
+              <div className="pt-1.5 border-t border-[#E5EDFA] text-[10px] text-slate-500 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Synced with Shared Apex Cloud Firestore (coinOrders)</span>
               </div>
             </div>
 

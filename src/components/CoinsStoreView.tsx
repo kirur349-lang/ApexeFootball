@@ -1,7 +1,9 @@
 import React from 'react';
-import { ShieldCheck, Zap, Sparkles, Check } from 'lucide-react';
+import { ShieldCheck, Zap, Sparkles, Check, Clock, ShoppingBag } from 'lucide-react';
 import { CoinPackage } from '../types';
 import { COIN_PACKAGES } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { useCustomerOrdersLive } from '../services/firestoreData';
 
 interface CoinsStoreViewProps {
   onBackToHome: () => void;
@@ -12,6 +14,9 @@ export const CoinsStoreView: React.FC<CoinsStoreViewProps> = ({
   onBackToHome,
   onSelectPackage,
 }) => {
+  const { player } = useAuth();
+  const { orders, loading: ordersLoading } = useCustomerOrdersLive(player?.id);
+
   return (
     <div className="w-full pb-24 pt-2 max-w-2xl mx-auto px-4">
       {/* Top Breadcrumb & Title */}
@@ -105,6 +110,70 @@ export const CoinsStoreView: React.FC<CoinsStoreViewProps> = ({
           </div>
         ))}
       </div>
+
+      {/* Customer's Live Firestore Orders Section (If logged in and has orders) */}
+      {player && orders.length > 0 && (
+        <div className="bg-white rounded-2xl border border-[#E5EDFA] p-4 shadow-xs mb-6">
+          <div className="flex items-center justify-between border-b border-[#E5EDFA] pb-2.5 mb-3">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-[#087BFF]" />
+              <h3 className="text-sm font-bold text-[#101C3A]">My Top-Up Orders</h3>
+            </div>
+            <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              Live Firestore Sync
+            </span>
+          </div>
+
+          <div className="space-y-2.5">
+            {orders.map((ord) => {
+              const isApproved = ord.orderStatus === 'Approved';
+              const isRejected = ord.orderStatus === 'Rejected';
+              return (
+                <div
+                  key={ord.id}
+                  className="p-3 rounded-xl bg-[#F8FAFD] border border-[#E5EDFA] flex items-center justify-between text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-[#087BFF] text-[11px]">{ord.id}</span>
+                      <span className="text-[11px] text-[#71819A]">
+                        {ord.packageName || `${ord.packageCoins} Coins`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-[#71819A] mt-0.5">
+                      <span>ID: {ord.efootballId}</span>
+                      <span>·</span>
+                      <span>${ord.amountUsd}</span>
+                      <span>·</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(ord.orderDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-md font-bold text-[10px] border ${
+                        isApproved
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                          : isRejected
+                          ? 'bg-red-50 text-red-600 border-red-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}
+                    >
+                      {ord.orderStatus || 'Pending'}
+                    </span>
+                    <span className="block text-[9px] text-[#71819A] mt-0.5">
+                      {ord.paymentStatus || 'Verification Pending'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Safety Guarantee Features */}
       <div className="bg-white rounded-2xl border border-[#E5EDFA] p-4 shadow-xs space-y-3">

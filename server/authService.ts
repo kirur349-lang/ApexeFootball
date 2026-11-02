@@ -104,9 +104,19 @@ export async function authenticateTelegramUser(params: {
       };
     }
 
-    // Do NOT block real Telegram user if Blob storage is pending!
-    // Real identity is cryptographically verified.
-    const { player, isNew } = await getOrCreatePlayer(verification.user, false);
+    // Synchronize authenticated Telegram player to shared Firestore 'players' collection
+    let player: PlayerProfile;
+    let isNew = false;
+    try {
+      const { syncTelegramPlayerToFirestore } = await import('./firebaseDb.ts');
+      player = await syncTelegramPlayerToFirestore(verification.user);
+    } catch (dbErr) {
+      console.warn('[Auth] Firestore sync fallback to local storage:', dbErr);
+      const res = await getOrCreatePlayer(verification.user, false);
+      player = res.player;
+      isNew = res.isNew;
+    }
+
     const token = generateSessionToken(player.telegramId);
 
     return {
@@ -115,7 +125,7 @@ export async function authenticateTelegramUser(params: {
       token,
       isNewAccount: isNew,
       isDevPreview: false,
-      isBlobPending: !blobConfigured,
+      isBlobPending: false,
       diagnostics: {
         sdkDetected: true,
         initDataReceived: true,
@@ -126,7 +136,7 @@ export async function authenticateTelegramUser(params: {
         authDate: verification.authDate,
         botTokenConfigured: true,
         blobConfigured,
-        storageMode: blobConfigured ? 'vercel_blob' : 'session_memory',
+        storageMode: 'shared_cloud_firestore',
       },
     };
   }
@@ -173,5 +183,40 @@ export async function authenticateTelegramUser(params: {
 export async function getCurrentPlayer(token: string): Promise<PlayerProfile | null> {
   const telegramId = verifySessionToken(token);
   if (!telegramId) return null;
+
+  try {
+    const { serverDb } = await import('./firebaseDb.ts');
+    const { doc, getDoc } = await import('firebase/firestore');
+    const snap = await getDoc(doc(serverDb, 'players', `tg_${telegramId}`));
+    if (snap.exists()) {
+      const data = snap.data();
+      return {
+        id: `tg_${telegramId}`,
+        telegramId,
+        firstName: data.name?.split(' ')[0] || `User_${telegramId}`,
+        lastName: data.name?.split(' ').slice(1).join(' ') || '',
+        username: data.username,
+        photoUrl: data.avatar || '',
+        isPremium: false,
+        apexId: data.apexId || `APEX-${telegramId}`,
+        apexGamerTag: data.name || `Apex_${telegramId}`,
+        konamiId: data.efootballId || undefined,
+        coinsBalance: typeof data.coinsBalance === 'number' ? data.coinsBalance : 250,
+        rankTitle: data.ranking ? `Apex Division #${data.ranking}` : 'Apex Challenger',
+        reputationScore: 100,
+        matchesPlayed: data.matchesPlayed || 0,
+        wins: data.wins || 0,
+        losses: data.losses || 0,
+        role: 'player',
+        createdAt: data.registrationDate || new Date().toISOString(),
+        lastActiveAt: data.lastActiveAt || new Date().toISOString(),
+        isDevPreview: false,
+        isBlobPending: false,
+      };
+    }
+  } catch (err) {
+    console.warn('[Auth] Error fetching player from Firestore:', err);
+  }
+
   return getPlayerByTelegramId(telegramId);
 }

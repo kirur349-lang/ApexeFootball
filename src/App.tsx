@@ -12,12 +12,9 @@ import { TournamentsView } from './components/TournamentsView';
 import { LiveArenaView } from './components/LiveArenaView';
 import { CoinsStoreView } from './components/CoinsStoreView';
 import { MoreView } from './components/MoreView';
-import { AuthLoadingScreen } from './components/AuthLoadingScreen';
 import { AuthDiagnosticsScreen } from './components/AuthDiagnosticsScreen';
 import { TelegramAuthModal } from './components/TelegramAuthModal';
-import { DevPreviewBanner } from './components/DevPreviewBanner';
 import { TelegramSetupModal } from './components/TelegramSetupModal';
-import { X, ShieldAlert, Sparkles } from 'lucide-react';
 
 import {
   PROMO_SLIDES,
@@ -28,9 +25,28 @@ import {
 } from './data/mockData';
 import { TabType, NewsItem, CoinPackage, AppNotification } from './types';
 import { isInsideTelegram } from './utils/telegram';
+import { useNewsLive, useNotificationsLive, useLivePlayerDoc } from './services/firestoreData';
 
 function ApexAppInner() {
   const { player, isLoading, authError, authErrorCode, loginAsDevMock, clearError } = useAuth();
+  const { news: liveNews } = useNewsLive();
+  const { notifications, setNotifications } = useNotificationsLive();
+  const livePlayerDoc = useLivePlayerDoc(player?.id);
+
+  // Synchronize live Firestore coinsBalance and stats from shared database
+  const activePlayer = player
+    ? {
+        ...player,
+        coinsBalance:
+          typeof livePlayerDoc?.coinsBalance === 'number'
+            ? livePlayerDoc.coinsBalance
+            : player.coinsBalance,
+        rankTitle: livePlayerDoc?.ranking
+          ? `Apex Division #${livePlayerDoc.ranking}`
+          : player.rankTitle,
+        apexGamerTag: livePlayerDoc?.name || player.apexGamerTag,
+      }
+    : null;
 
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [selectedArticle, setSelectedArticle] = useState<NewsItem | null>(null);
@@ -40,11 +56,10 @@ function ApexAppInner() {
   const [isSetupGuideOpen, setIsSetupGuideOpen] = useState(false);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [authModalReason, setAuthModalReason] = useState<string | null>(null);
-  const [dismissedAuthBanner, setDismissedAuthBanner] = useState(false);
-  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
 
-  // Combine all news for the AllNews modal
-  const allNewsList = [...LATEST_NEWS, ...ADDITIONAL_NEWS];
+  // Real shared news from Firestore with fallback
+  const allNewsList = liveNews && liveNews.length > 0 ? liveNews : [...LATEST_NEWS, ...ADDITIONAL_NEWS];
+  const displayNews = allNewsList.slice(0, 4);
   const unreadNotificationCount = notifications.filter((n) => !n.read).length;
 
   const handleMarkAllAsRead = () => {
@@ -62,13 +77,13 @@ function ApexAppInner() {
     } else if (notif.type === 'coins') {
       setActiveTab('coins');
     } else if (notif.type === 'patch') {
-      const patchArticle = LATEST_NEWS.find((item) => item.id === 'news-1');
+      const patchArticle = allNewsList.find((item) => item.id === 'news-1' || item.id === 'art-1') || allNewsList[0];
       if (patchArticle) setSelectedArticle(patchArticle);
     }
   };
 
   const handleReadArticleById = (articleId: string) => {
-    const found = allNewsList.find((item) => item.id === articleId) || LATEST_NEWS[0];
+    const found = allNewsList.find((item) => item.id === articleId) || allNewsList[0];
     setSelectedArticle(found);
   };
 
@@ -81,47 +96,13 @@ function ApexAppInner() {
         <div className="absolute -bottom-24 right-0 w-[420px] h-[420px] rounded-full bg-[#087BFF]/[0.04] blur-[100px]" />
       </div>
 
-      {/* Dev Preview Mode Banner (shown when testing outside Telegram) */}
-      <DevPreviewBanner onOpenSetupGuide={() => setIsSetupGuideOpen(true)} />
-
       {/* 2. TOP HEADER (Fixed across navigation, with Player Status Chip or Guest Pill) */}
       <Header
         unreadCount={unreadNotificationCount}
         onOpenNotifications={() => setIsNotificationOpen(true)}
-        player={player}
+        player={activePlayer}
         onOpenProfile={() => setActiveTab('more')}
       />
-
-      {/* Non-blocking Telegram Auth Status Banner (shown when Telegram verification failed / bot token pending) */}
-      {authError && !player && !dismissedAuthBanner && (
-        <div className="w-full max-w-2xl mx-auto px-4 pt-2">
-          <div className="w-full bg-white/90 backdrop-blur-md border border-amber-300/60 rounded-2xl p-2.5 shadow-[0_4px_16px_rgba(245,158,11,0.08)] flex items-center justify-between gap-2.5 animate-in fade-in duration-200">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                <ShieldAlert className="w-3.5 h-3.5" />
-              </div>
-              <p className="text-[11px] text-[#101C3A] truncate font-medium">
-                <span className="font-bold text-amber-700">Guest Visitor Mode:</span> All public pages, news & schedules are active.
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={() => setIsDiagnosticsOpen(true)}
-                className="text-[11px] font-bold text-[#087BFF] hover:underline px-1.5 py-0.5"
-              >
-                Diagnostics
-              </button>
-              <button
-                onClick={() => setDismissedAuthBanner(true)}
-                aria-label="Dismiss banner"
-                className="w-5 h-5 rounded-full hover:bg-slate-100 flex items-center justify-center text-[#71819A]"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content Area */}
       <main className="flex-1 w-full pb-24">
@@ -140,9 +121,9 @@ function ApexAppInner() {
               onReadArticle={handleReadArticleById}
             />
 
-            {/* 4. LATEST NEWS SECTION (Contains exactly four news cards per rule #6) */}
+            {/* 4. LATEST NEWS SECTION (Shows live published news from Firestore) */}
             <LatestNewsSection
-              news={LATEST_NEWS}
+              news={displayNews}
               onSelectArticle={(article) => setSelectedArticle(article)}
               onViewAllNews={() => setIsAllNewsOpen(true)}
             />

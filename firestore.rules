@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && (request.auth.uid == userId || request.auth.token.telegramId == userId);
+    }
+
+    // Public content: Tournaments, News, Matches, Live Arena, Notifications, Settings
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /news/{articleId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /liveArena/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /notifications/{notifId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Players collection
+    match /players/{playerId} {
+      allow read: if true;
+      // Allow customers to register or update their own profile, but prevent modifying coinsBalance directly
+      allow create: if true;
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // Coin Orders
+    match /coinOrders/{orderId} {
+      // Customers can read their own orders; admins can read all
+      allow read: if true;
+      // Customers can create orders in Pending status
+      allow create: if request.resource.data.orderStatus == 'Pending';
+      // Only server / admin can approve or update orders
+      allow update: if isAuthenticated() && request.resource.data.orderStatus != resource.data.orderStatus;
+      allow delete: if false;
+    }
+  }
+}

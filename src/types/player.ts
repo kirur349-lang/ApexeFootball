@@ -16,9 +16,11 @@ export interface PlayerProfile {
   lastName?: string;
   username?: string;
   photoUrl?: string;
+  languageCode?: string;
   isPremium?: boolean;
 
   // Apex eFootball Competitive Identity
+  apexId: string; // e.g. "APEX-9482-1049"
   apexGamerTag: string;
   konamiId?: string;
   coinsBalance: number;
@@ -49,7 +51,7 @@ export interface AuthDiagnostics {
   botTokenConfigured?: boolean;
   errorCode?: string;
   blobConfigured?: boolean;
-  storageMode?: 'vercel_blob' | 'session_memory' | 'local_sandbox';
+  storageMode?: 'vercel_blob' | 'session_memory' | 'local_sandbox' | 'shared_cloud_firestore';
 }
 
 export interface AuthResponse {

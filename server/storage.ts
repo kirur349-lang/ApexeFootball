@@ -81,6 +81,21 @@ function persistLocalSandbox(): void {
 // -------------------------------------------------------------
 
 /**
+ * Generates a unique Apex Player ID formatted as APEX-XXXX-XXXX
+ */
+export function generateApexId(telegramId?: number): string {
+  if (telegramId && !isNaN(telegramId)) {
+    const seed = Math.abs(telegramId);
+    const part1 = String((seed % 8999) + 1000);
+    const part2 = Math.floor(1000 + Math.random() * 9000);
+    return `APEX-${part1}-${part2}`;
+  }
+  const part1 = Math.floor(1000 + Math.random() * 9000);
+  const part2 = Math.floor(1000 + Math.random() * 9000);
+  return `APEX-${part1}-${part2}`;
+}
+
+/**
  * Retrieves or initializes a player profile specifically for Dev Preview Mode.
  * This runs completely independently of Vercel Blob storage.
  */
@@ -99,6 +114,8 @@ export async function getOrCreateDevMockPlayer(
       lastName: tgUser.last_name !== undefined ? tgUser.last_name : existing.lastName,
       username: tgUser.username !== undefined ? tgUser.username : existing.username,
       photoUrl: tgUser.photo_url || existing.photoUrl,
+      languageCode: tgUser.language_code || existing.languageCode,
+      apexId: existing.apexId || generateApexId(tgUser.id),
       lastActiveAt: now,
       isDevPreview: true,
       isBlobPending: false,
@@ -116,6 +133,12 @@ export async function getOrCreateDevMockPlayer(
   const isPro = tgUser.username?.includes('viperx') || tgUser.id === 98452101;
   const isStreamer = tgUser.username?.includes('kage') || tgUser.id === 71203948;
 
+  const mockApexId = isPro
+    ? 'APEX-9921-1042'
+    : isStreamer
+    ? 'APEX-7734-2190'
+    : 'APEX-5410-9283';
+
   const newPlayer: PlayerProfile = {
     id: key,
     telegramId: tgUser.id,
@@ -123,8 +146,10 @@ export async function getOrCreateDevMockPlayer(
     lastName: tgUser.last_name,
     username: tgUser.username,
     photoUrl: tgUser.photo_url,
+    languageCode: tgUser.language_code || 'en',
     isPremium: tgUser.is_premium,
 
+    apexId: mockApexId,
     apexGamerTag: tag,
     konamiId: isPro ? 'VIPER-9921' : isStreamer ? 'KAGE-7734' : undefined,
     coinsBalance: isPro ? 2130 : isStreamer ? 4500 : 250,
@@ -271,8 +296,10 @@ export async function getOrCreatePlayer(
       firstName: tgUser.first_name || existing.firstName,
       lastName: tgUser.last_name !== undefined ? tgUser.last_name : existing.lastName,
       username: tgUser.username !== undefined ? tgUser.username : existing.username,
-      photoUrl: tgUser.photo_url || existing.photoUrl,
+      photoUrl: tgUser.photo_url !== undefined ? tgUser.photo_url : existing.photoUrl,
+      languageCode: tgUser.language_code || existing.languageCode,
       isPremium: tgUser.is_premium ?? existing.isPremium,
+      apexId: existing.apexId || generateApexId(tgUser.id),
       lastActiveAt: now,
       isDevPreview: false,
       isBlobPending: blobPending,
@@ -282,7 +309,7 @@ export async function getOrCreatePlayer(
     return { player: updated, isNew: false };
   }
 
-  // Create new real Player Profile
+  // Create brand-new Apex Player Profile
   const initialGamerTag = tgUser.username
     ? `Apex_${tgUser.username.replace(/[^a-zA-Z0-9_]/g, '')}`
     : `Apex_${tgUser.first_name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) || 'Player'}`;
@@ -294,8 +321,10 @@ export async function getOrCreatePlayer(
     lastName: tgUser.last_name,
     username: tgUser.username,
     photoUrl: tgUser.photo_url,
+    languageCode: tgUser.language_code,
     isPremium: tgUser.is_premium,
 
+    apexId: generateApexId(tgUser.id),
     apexGamerTag: initialGamerTag,
     konamiId: undefined,
     coinsBalance: 250, // 250 welcome bonus coins

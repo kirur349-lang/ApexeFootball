@@ -10,7 +10,9 @@ import {
 
 interface AuthContextType {
   player: PlayerProfile | null;
+  token: string | null;
   isLoading: boolean;
+  isProfileLoading: boolean;
   authError: string | null;
   authErrorCode: string | null;
   authDiagnostics: AuthDiagnostics | null;
@@ -37,6 +39,7 @@ export const DEV_MOCK_PRESETS = {
     first_name: 'ViperX',
     last_name: 'Esports',
     username: 'viperx_efootball',
+    language_code: 'en',
     is_premium: true,
     photo_url: '',
   },
@@ -45,6 +48,7 @@ export const DEV_MOCK_PRESETS = {
     first_name: 'Alex',
     last_name: 'Striker',
     username: 'alex_apex',
+    language_code: 'en',
     is_premium: false,
     photo_url: '',
   },
@@ -53,6 +57,7 @@ export const DEV_MOCK_PRESETS = {
     first_name: 'Kage',
     last_name: 'Pro',
     username: 'kage_division1',
+    language_code: 'en',
     is_premium: true,
     photo_url: '',
   },
@@ -71,6 +76,7 @@ export function createDevMockPlayer(
 
   const presetsConfig = {
     pro: {
+      apexId: 'APEX-9921-1042',
       tag: 'Apex_ViperX_Pro',
       rank: 'Apex Division 1 Elite',
       coins: 2130,
@@ -81,6 +87,7 @@ export function createDevMockPlayer(
       konamiId: 'VIPER-9921',
     },
     rookie: {
+      apexId: 'APEX-5410-9283',
       tag: customGamerTag ? `Apex_${customGamerTag}` : 'Apex_AlexRookie',
       rank: 'Apex Challenger',
       coins: 250, // 250 welcome bonus
@@ -91,6 +98,7 @@ export function createDevMockPlayer(
       konamiId: undefined,
     },
     streamer: {
+      apexId: 'APEX-7734-2190',
       tag: 'Apex_KageLive',
       rank: 'Apex Master Division',
       coins: 4500,
@@ -111,7 +119,9 @@ export function createDevMockPlayer(
     lastName: user.last_name,
     username: user.username,
     photoUrl: user.photo_url,
+    languageCode: user.language_code,
     isPremium: user.is_premium,
+    apexId: config.apexId,
     apexGamerTag: config.tag,
     konamiId: config.konamiId,
     coinsBalance: config.coins,
@@ -130,6 +140,7 @@ export function createDevMockPlayer(
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
+  const [token, setToken] = useState<string | null>(() => sessionStorage.getItem(TOKEN_KEY));
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authErrorCode, setAuthErrorCode] = useState<string | null>(null);
@@ -162,6 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.success && data.player && data.token) {
         setPlayer(data.player);
+        setToken(data.token);
         setIsDevPreview(false);
         setIsNewAccount(Boolean(data.isNewAccount));
         setIsBlobPending(Boolean(data.isBlobPending));
@@ -220,6 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const data: AuthResponse = await res.json();
           if (data.success && data.player && data.token) {
             setPlayer(data.player);
+            setToken(data.token);
             setIsNewAccount(Boolean(data.isNewAccount));
             sessionStorage.setItem(TOKEN_KEY, data.token);
             triggerHaptic('success');
@@ -373,6 +386,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(DEV_PREVIEW_KEY);
     setPlayer(null);
+    setToken(null);
     setIsDevPreview(false);
   };
 
@@ -390,7 +404,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         player,
+        token,
         isLoading,
+        isProfileLoading: isLoading,
         authError,
         authErrorCode,
         authDiagnostics,
